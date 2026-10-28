@@ -1,0 +1,4 @@
+sku_id,revision,updated_at,sku_code,product_id,quote_id,title,sale_price,packaging_per_order,platform_fee_per_order,marketing_per_order,after_sales_loss_per_order,assumption_ref,assumptions_as_of,status
+S-01,1,2026-10-27T08:00:00+08:00,SKU-01,PC-01,Q-01A,合成演示规格 01,29.90,0.80,1.50,3.00,1.00,fixture://assumptions/01,2026-10-25T09:00:00+08:00,draft
+S-02,1,2026-10-27T08:00:00+08:00,SKU-02,PC-02,Q-02A,合成演示规格 02,49.90,1.00,2.50,5.00,2.00,fixture://assumptions/02,2026-10-25T09:00:00+08:00,draft
+S-03,1,2026-10-27T08:00:00+08:00,SKU-03,PC-03,Q-03A,合成演示规格 03,19.90,0.50,1.00,,0.80,fixture://assumptions/03,2026-10-25T09:00:00+08:00,draft

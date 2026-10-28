@@ -1,0 +1,16 @@
+check_id,revision,updated_at,product_id,check_type,result,checked_at,evidence_ref,note
+C-01-visual_demo,1,2026-10-27T08:00:00+08:00,PC-01,visual_demo,pass,2026-10-25T11:00:00+08:00,fixture://checks/C-01-visual_demo,合成检查结果；不是实际资质或素材授权
+C-01-fact_sheet,1,2026-10-27T08:00:00+08:00,PC-01,fact_sheet,pass,2026-10-25T11:00:00+08:00,fixture://checks/C-01-fact_sheet,合成检查结果；不是实际资质或素材授权
+C-01-media_rights,1,2026-10-27T08:00:00+08:00,PC-01,media_rights,pass,2026-10-25T11:00:00+08:00,fixture://checks/C-01-media_rights,合成检查结果；不是实际资质或素材授权
+C-01-sales_eligibility,1,2026-10-27T08:00:00+08:00,PC-01,sales_eligibility,pass,2026-10-25T11:00:00+08:00,fixture://checks/C-01-sales_eligibility,合成检查结果；不是实际资质或素材授权
+C-01-claims_review,1,2026-10-27T08:00:00+08:00,PC-01,claims_review,pass,2026-10-25T11:00:00+08:00,fixture://checks/C-01-claims_review,合成检查结果；不是实际资质或素材授权
+C-02-visual_demo,1,2026-10-27T08:00:00+08:00,PC-02,visual_demo,pass,2026-10-25T11:00:00+08:00,fixture://checks/C-02-visual_demo,合成检查结果；不是实际资质或素材授权
+C-02-fact_sheet,1,2026-10-27T08:00:00+08:00,PC-02,fact_sheet,pass,2026-10-25T11:00:00+08:00,fixture://checks/C-02-fact_sheet,合成检查结果；不是实际资质或素材授权
+C-02-media_rights,1,2026-10-27T08:00:00+08:00,PC-02,media_rights,unknown,,,合成检查结果；不是实际资质或素材授权
+C-02-sales_eligibility,1,2026-10-27T08:00:00+08:00,PC-02,sales_eligibility,pass,2026-10-25T11:00:00+08:00,fixture://checks/C-02-sales_eligibility,合成检查结果；不是实际资质或素材授权
+C-02-claims_review,1,2026-10-27T08:00:00+08:00,PC-02,claims_review,pass,2026-10-25T11:00:00+08:00,fixture://checks/C-02-claims_review,合成检查结果；不是实际资质或素材授权
+C-03-visual_demo,1,2026-10-27T08:00:00+08:00,PC-03,visual_demo,unknown,,,合成检查结果；不是实际资质或素材授权
+C-03-fact_sheet,1,2026-10-27T08:00:00+08:00,PC-03,fact_sheet,unknown,,,合成检查结果；不是实际资质或素材授权
+C-03-media_rights,1,2026-10-27T08:00:00+08:00,PC-03,media_rights,unknown,,,合成检查结果；不是实际资质或素材授权
+C-03-sales_eligibility,1,2026-10-27T08:00:00+08:00,PC-03,sales_eligibility,unknown,,,合成检查结果；不是实际资质或素材授权
+C-03-claims_review,1,2026-10-27T08:00:00+08:00,PC-03,claims_review,unknown,,,合成检查结果；不是实际资质或素材授权

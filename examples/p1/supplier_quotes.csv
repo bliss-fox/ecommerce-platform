@@ -1,0 +1,7 @@
+quote_id,revision,updated_at,product_id,supplier_name,source_ref,quoted_at,unit_cost,shipping_per_order,min_qty,dropship_supported,lead_time_hours,return_terms,sample_result,sample_evidence_ref
+Q-01A,1,2026-10-27T08:00:00+08:00,PC-01,合成甲工厂,fixture://quote/Q-01A,2026-10-25T09:00:00+08:00,11.20,4.00,1,true,48,合成条款：质量问题按约退换,pass,fixture://sample/Q-01A
+Q-01B,1,2026-10-27T08:00:00+08:00,PC-01,合成乙供应商,fixture://quote/Q-01B,2026-10-25T09:00:00+08:00,10.60,5.00,1,true,72,合成条款：退货运费待协商,pass,fixture://sample/Q-01B
+Q-02A,1,2026-10-27T08:00:00+08:00,PC-02,合成丙工厂,fixture://quote/Q-02A,2026-10-25T09:00:00+08:00,20.00,6.00,1,true,48,合成条款：缺件补寄,pass,fixture://sample/Q-02A
+Q-02B,1,2026-10-27T08:00:00+08:00,PC-02,合成丁供应商,fixture://quote/Q-02B,2026-10-25T09:00:00+08:00,18.50,7.00,10,false,72,,unknown,
+Q-03A,1,2026-10-27T08:00:00+08:00,PC-03,合成戊工厂,fixture://quote/Q-03A,2026-10-25T09:00:00+08:00,5.00,4.00,1,true,48,合成条款：质量问题需照片,unknown,
+Q-03B,1,2026-10-27T08:00:00+08:00,PC-03,合成己供应商,fixture://quote/Q-03B,2026-10-25T09:00:00+08:00,4.80,,1,true,48,合成条款：未核实细节,unknown,

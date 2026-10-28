@@ -1,0 +1,8 @@
+research_id,revision,updated_at,keyword,source_ref,captured_at,published_at,pain_point,evidence_summary,evidence_status,permission_basis,dedupe_key,evidence_ref
+R-01,1,2026-10-27T08:00:00+08:00,合成研究关键词,fixture://research/R-01,2026-10-24T14:00:00+08:00,,合成痛点记录 1,虚构研究材料，仅验证来源关联与规则；不代表真实用户意见,verified,synthetic,ORIGIN-01,fixture://evidence/R-01
+R-02,1,2026-10-27T08:00:00+08:00,合成研究关键词,fixture://research/R-02,2026-10-24T14:00:00+08:00,,合成痛点记录 2,虚构研究材料，仅验证来源关联与规则；不代表真实用户意见,verified,synthetic,ORIGIN-02,fixture://evidence/R-02
+R-03,1,2026-10-27T08:00:00+08:00,合成研究关键词,fixture://research/R-03,2026-10-24T14:00:00+08:00,,合成痛点记录 3,虚构研究材料，仅验证来源关联与规则；不代表真实用户意见,verified,synthetic,ORIGIN-03,fixture://evidence/R-03
+R-04,1,2026-10-27T08:00:00+08:00,合成研究关键词,fixture://research/R-04,2026-10-24T14:00:00+08:00,,合成痛点记录 4,虚构研究材料，仅验证来源关联与规则；不代表真实用户意见,verified,synthetic,ORIGIN-04,fixture://evidence/R-04
+R-05,1,2026-10-27T08:00:00+08:00,合成研究关键词,fixture://research/R-05,2026-10-24T14:00:00+08:00,,合成痛点记录 5,虚构研究材料，仅验证来源关联与规则；不代表真实用户意见,verified,synthetic,ORIGIN-05,fixture://evidence/R-05
+R-06,1,2026-10-27T08:00:00+08:00,合成研究关键词,fixture://research/R-06,2026-10-24T14:00:00+08:00,,合成痛点记录 6,虚构研究材料，仅验证来源关联与规则；不代表真实用户意见,verified,synthetic,ORIGIN-06,fixture://evidence/R-06
+R-07,1,2026-10-27T08:00:00+08:00,合成研究关键词,fixture://research/R-07,2026-10-24T14:00:00+08:00,,合成痛点记录 7,虚构研究材料，仅验证来源关联与规则；不代表真实用户意见,unverified,synthetic,ORIGIN-07,

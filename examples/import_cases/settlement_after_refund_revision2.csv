@@ -1,0 +1,2 @@
+settlement_id,revision,updated_at,order_line_id,cutoff_at,covered_refunded_amount,platform_fee_deducted,other_withheld,settlement_adjustments,actual_received,source_ref
+SET-02,2,2026-10-27T10:00:00+08:00,OL-02,2026-10-27T09:00:00+08:00,20.00,5.00,0.00,0.00,75.00,fixture://settlement/02

@@ -1,0 +1,2 @@
+expense_id,revision,updated_at,expense_date,category,amount,basis,allocation_mode,order_line_id,source_ref,remark
+E-04-marketing,2,2026-10-27T10:00:00+08:00,2026-10-20,marketing,7.00,actual,direct,OL-04,fixture://expense/E-04-marketing,合成费用已确认
