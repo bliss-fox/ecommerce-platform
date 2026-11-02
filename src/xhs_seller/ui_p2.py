@@ -189,12 +189,10 @@ def render_result(sku, result):
 
 
 def render(engine, mode):
-    st.header("研究证据与规则评分")
-    st.caption(
-        "筛选规则不是销量预测；评分与建议均需人工复核。报告使用当前修订快照，不回放历史版本。"
-    )
+    st.header("研究与证据")
+    st.caption("这些分数来自固定规则，不是销量预测。请人工复核。计算用的是当前记录，不会回放旧版本。")
     if mode == "合成演示":
-        st.warning("合成数据评分，不能据此采购。请在“编辑与导入”预检并确认加载合成研究示例。")
+        st.warning("合成数据评分，不能据此采购。请在「导入文件」预检并确认加载合成研究示例。")
     with Session(engine) as session:
         session.exec(text("BEGIN"))
         products = {row.product_id: row for row in session.exec(select(ProductCandidate)).all()}
@@ -210,7 +208,7 @@ def render(engine, mode):
         st.info("请先添加候选、报价和 SKU。")
         return
     raw_as_of = report_time_input(
-        "报告时间（ISO 8601，必须带时区）",
+        "报告时点（必须带时区）",
         f"p2_asof_{mode}",
     )
     try:

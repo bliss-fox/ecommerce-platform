@@ -15,13 +15,28 @@ from xhs_seller.models import (
     SupplierQuote,
 )
 
+# Route ids stay stable for object links and tests. PAGE_LABELS is what people see.
 WORKSPACES = {
-    "协作工作台": ["经营提醒", "离线协作"],
-    "选品工作区": ["候选与报价", "SKU 经济性", "研究与评分"],
-    "内容工作区": ["离线草稿"],
+    "工作台": ["经营提醒", "离线协作"],
+    "选品": ["候选与报价", "SKU 经济性", "研究与评分"],
+    "内容": ["离线草稿"],
     "经营核对": ["订单成本与对账", "异常与复盘"],
-    "决策记录": ["本地提案与复盘"],
-    "数据管理": ["数据导入", "编辑与导入", "订单费用导入", "数据备份"],
+    "决策": ["本地提案与复盘"],
+    "数据": ["数据导入", "编辑与导入", "数据备份"],
+}
+PAGE_LABELS = {
+    "经营提醒": "待处理事项",
+    "离线协作": "规则评估",
+    "候选与报价": "候选与报价",
+    "SKU 经济性": "经济性",
+    "研究与评分": "研究与证据",
+    "离线草稿": "内容草稿",
+    "订单成本与对账": "订单与结算",
+    "异常与复盘": "异常复盘",
+    "本地提案与复盘": "提案与决定",
+    "数据导入": "导入文件",
+    "编辑与导入": "手工编辑",
+    "数据备份": "备份",
 }
 
 
@@ -57,9 +72,15 @@ def render_navigation():
     key = f"nav_page_{workspace}"
     if len(pages) == 1:
         st.session_state[key] = pages[0]
-        st.sidebar.caption(f"页面：{pages[0]}")
+        st.sidebar.caption(PAGE_LABELS[pages[0]])
         return pages[0]
-    return st.sidebar.radio("页面", pages, key=key, on_change=clear_target)
+    return st.sidebar.radio(
+        "页面",
+        pages,
+        format_func=lambda page: PAGE_LABELS[page],
+        key=key,
+        on_change=clear_target,
+    )
 
 
 def clear_target():

@@ -35,8 +35,8 @@ def test_a37_center_switch_clears_old_preview_and_receipt(tmp_path, monkeypatch)
     assert "p1_preview" not in app.session_state
     assert "p1_receipt" not in app.session_state
     assert not any(b.label == "确认并原子提交" for b in app.button)
-    button(app, "预检 P4 合成示例").click().run()
-    assert button(app, "确认并原子提交 P4 数据")
+    button(app, "预检合成订单示例").click().run()
+    assert button(app, "确认写入订单数据")
     assert any("文件：" in m.value and "orders.csv" in m.value for m in app.markdown)
     app.radio(key="import_group").set_value("候选、报价与研究").run()
     assert "p4_preview" not in app.session_state
@@ -51,11 +51,11 @@ def test_a38_a40_commit_receipt_history_and_explicit_recheck(tmp_path, monkeypat
     navigate(app, "数据导入")
     app.radio(key="import_group").set_value("订单、费用与结算").run()
     app.session_state["p4_report_as_of"] = "2020-01-01T00:00:00+08:00"
-    button(app, "预检 P4 合成示例").click().run()
-    next(t for t in app.text_input if t.label == "P4 本地操作者标识").set_value("local")
-    button(app, "确认并原子提交 P4 数据").click().run()
+    button(app, "预检合成订单示例").click().run()
+    next(t for t in app.text_input if t.label == "订单导入操作者标识").set_value("local")
+    button(app, "确认写入订单数据").click().run()
     assert not app.exception
-    assert not any(b.label == "确认并原子提交 P4 数据" for b in app.button)
+    assert not any(b.label == "确认写入订单数据" for b in app.button)
     with Session(engine) as session:
         batch = session.exec(select(ImportBatch)).one()
         assert len(session.exec(select(OrderLine)).all()) == 5
@@ -73,10 +73,10 @@ def test_a38_a40_commit_receipt_history_and_explicit_recheck(tmp_path, monkeypat
     with Session(engine) as session:
         audit_count = len(session.exec(select(RevisionAudit)).all())
     navigate(app, "数据导入")
-    button(app, "预检 P4 合成示例").click().run()
+    button(app, "预检合成订单示例").click().run()
     assert not any(b.label == "查看本批修订" for b in app.button)
-    next(t for t in app.text_input if t.label == "P4 本地操作者标识").set_value("local")
-    button(app, "确认并原子提交 P4 数据").click().run()
+    next(t for t in app.text_input if t.label == "订单导入操作者标识").set_value("local")
+    button(app, "确认写入订单数据").click().run()
     with Session(engine) as session:
         assert len(session.exec(select(ImportBatch)).all()) == 2
         assert len(session.exec(select(RevisionAudit)).all()) == audit_count
@@ -125,9 +125,9 @@ def test_a39_sources_and_handoff_keep_order(tmp_path, monkeypatch):
         ),
         (
             "订单、费用与结算",
-            "预检 P4 合成示例",
-            "确认并原子提交 P4 数据",
-            "P4 本地操作者标识",
+            "预检合成订单示例",
+            "确认写入订单数据",
+            "订单导入操作者标识",
             "ui_p4",
             "order_line",
         ),
@@ -183,8 +183,8 @@ def test_a37_center_real_space_clears_confirmation_and_preview(tmp_path, monkeyp
     monkeypatch.setattr(db, "make_engine", lambda path=None: demo if path is None else real)
     navigate(app, "数据导入")
     app.radio(key="import_group").set_value("订单、费用与结算").run()
-    button(app, "预检 P4 合成示例").click().run()
-    next(t for t in app.text_input if t.label == "P4 本地操作者标识").set_value("old-operator")
+    button(app, "预检合成订单示例").click().run()
+    next(t for t in app.text_input if t.label == "订单导入操作者标识").set_value("old-operator")
     app.sidebar.selectbox(key="data_space").set_value("真实数据").run()
     assert not app.exception
     assert not any(
@@ -247,9 +247,9 @@ def test_a40_revision_recheck_refreshes_time_sources_and_selected_order(tmp_path
     app, engine = open_app(tmp_path, monkeypatch)
     navigate(app, "数据导入")
     app.radio(key="import_group").set_value("订单、费用与结算").run()
-    button(app, "预检 P4 合成示例").click().run()
-    next(t for t in app.text_input if t.label == "P4 本地操作者标识").set_value("local")
-    button(app, "确认并原子提交 P4 数据").click().run()
+    button(app, "预检合成订单示例").click().run()
+    next(t for t in app.text_input if t.label == "订单导入操作者标识").set_value("local")
+    button(app, "确认写入订单数据").click().run()
     button(app, "按当前时点重新核对订单").click().run()
     app.text_input(key="p4_report_as_of").set_value("2026-10-27T09:00:00+08:00").run()
     app.selectbox(key="r3_order_source").set_value("OL-04").run()
@@ -265,9 +265,9 @@ def test_a40_revision_recheck_refreshes_time_sources_and_selected_order(tmp_path
     )
     app.run()
     app.checkbox(key="p4_refunds_excluded_合成演示").check().run()
-    button(app, "预检 P4 所选文件").click().run()
-    next(t for t in app.text_input if t.label == "P4 本地操作者标识").set_value("local")
-    button(app, "确认并原子提交 P4 数据").click().run()
+    button(app, "预检所选订单文件").click().run()
+    next(t for t in app.text_input if t.label == "订单导入操作者标识").set_value("local")
+    button(app, "确认写入订单数据").click().run()
     assert app.session_state["p4_report_as_of"] == "2026-10-27T09:00:00+08:00"
     from xhs_seller.services.p4_report import build_report
 
@@ -299,9 +299,9 @@ def test_a40_recheck_from_legacy_import_without_selected_order(tmp_path, monkeyp
     app, engine = open_app(tmp_path, monkeypatch)
     navigate(app, "订单成本与对账")
     app.radio(key="p4_operation").set_value("CSV 导入").run()
-    button(app, "预检 P4 合成示例").click().run()
-    next(t for t in app.text_input if t.label == "P4 本地操作者标识").set_value("local")
-    button(app, "确认并原子提交 P4 数据").click().run()
+    button(app, "预检合成订单示例").click().run()
+    next(t for t in app.text_input if t.label == "订单导入操作者标识").set_value("local")
+    button(app, "确认写入订单数据").click().run()
     button(app, "按当前时点重新核对订单").click().run()
     assert not app.exception and not app.error
     assert app.radio(key="p4_operation").value == "报表与核对"
@@ -322,10 +322,10 @@ def test_a40_receipt_failure_is_safe_and_recovers_without_resubmitting(
     navigate(app, "数据导入")
     app.radio(key="import_group").set_value(group).run()
     is_p4 = group == "订单、费用与结算"
-    button(app, "预检 P4 合成示例" if is_p4 else "预检合成研究示例").click().run()
-    label = "P4 本地操作者标识" if is_p4 else "本地操作者标识"
+    button(app, "预检合成订单示例" if is_p4 else "预检合成研究示例").click().run()
+    label = "订单导入操作者标识" if is_p4 else "本地操作者标识"
     next(t for t in app.text_input if t.label == label).set_value("local")
-    button(app, "确认并原子提交 P4 数据" if is_p4 else "确认并原子提交").click().run()
+    button(app, "确认写入订单数据" if is_p4 else "确认并原子提交").click().run()
     with Session(engine) as session:
         batch = session.exec(select(ImportBatch)).one()
         original_counts = batch.counts_json

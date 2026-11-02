@@ -27,20 +27,27 @@ from xhs_seller.ui_p4 import render as render_p4
 from xhs_seller.ui_p5 import render as render_p5
 from xhs_seller.ui_p5 import render_review
 from xhs_seller.ui_products import render as render_products
+from xhs_seller.ui_shell import apply_chrome
 from xhs_seller.ui_workbench import render as render_workbench
 
 
 def show():
     restore_after_failure()
     space_label = st.session_state.get("data_space", "合成演示")
-    st.set_page_config(page_title=f"卖家助手 · {space_label}", layout="wide")
+    st.set_page_config(
+        page_title=f"卖家助手 · {space_label}",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+    apply_chrome()
     st.sidebar.title("小红书卖家助手")
+    st.sidebar.caption("只给出建议，不执行操作")
     mode = st.sidebar.selectbox("数据空间", ["合成演示", "真实数据"], key="data_space")
     if mode == "合成演示":
-        st.warning("纯合成演示数据：仅用于离线软件验证，不代表真实报价、需求或经营结果。")
+        st.sidebar.warning("纯合成演示数据：仅用于离线软件验证，不代表真实报价、需求或经营结果。")
         engine = make_engine()
     else:
-        st.info("真实数据使用独立的本地数据库；不会自动加入演示数据。")
+        st.sidebar.info("真实数据使用独立的本地数据库；不会自动加入演示数据。")
         engine = make_engine(REAL_DB)
     sync_navigation_space(engine, mode)
     sync_space(engine, mode)
@@ -91,12 +98,6 @@ def render_page(engine, mode, page):
         return
     if page == "订单成本与对账":
         render_p4(engine, mode, focus_id=target_id)
-        return
-    if page == "订单费用导入":
-        from xhs_seller.ui_p4 import render_import
-
-        st.header("订单、费用与结算导入")
-        render_import(engine, mode)
         return
     if page == "异常与复盘":
         render_review(engine)

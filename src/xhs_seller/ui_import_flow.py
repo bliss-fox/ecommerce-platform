@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 from sqlalchemy.exc import SQLAlchemyError
 
-from xhs_seller.services.imports import CONTRACT, SPECS, TIME_FIELDS, preflight, read_receipt
+from xhs_seller.services.imports import SPECS, TIME_FIELDS, preflight, read_receipt
 from xhs_seller.ui_csv import warn_formula_fields
 from xhs_seller.ui_navigation import go
 from xhs_seller.ui_preview import preview_page
@@ -70,7 +70,7 @@ def display_snapshot(row):
 
 def file_step(namespace, names):
     st.subheader("1. 选择类型与文件")
-    st.caption(f"数据契约：{CONTRACT}；按明确文件类型导入，不自动猜测列映射。")
+    st.caption("按确定的文件类型导入，不会自动猜测列名。")
     kind = st.selectbox(
         "下载模板类型", list(names), format_func=names.get, key=f"{namespace}_template"
     )
@@ -103,14 +103,14 @@ def preview_details(preview, names, namespace):
         st.error("存在错误，整批不能提交。错误报告不包含原始行内容。")
         errors = [vars(item) for item in preview.errors]
         st.dataframe(errors, hide_index=True)
-        label = "P4 错误报告" if namespace == "p4" else "错误报告 CSV"
+        label = "订单导入错误报告" if namespace == "p4" else "错误报告 CSV"
         warn_formula_fields(errors, {"record_id": "记录 ID"}, label)
         out = io.StringIO(newline="")
         writer = csv.DictWriter(out, fieldnames=list(errors[0]))
         writer.writeheader()
         writer.writerows(errors)
         st.download_button(
-            "下载 P4 错误报告" if namespace == "p4" else "下载错误报告",
+            "下载订单导入错误报告" if namespace == "p4" else "下载错误报告",
             out.getvalue().encode("utf-8-sig"),
             f"{namespace}-errors.csv",
             "text/csv",

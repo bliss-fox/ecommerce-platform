@@ -226,6 +226,7 @@ def draft_tab(engine, sku_id, operator, mode, drafts):
             "选用正文事实（按选择顺序）",
             verified,
             default=draft.body.splitlines(),
+            placeholder="选择事实",
             key=f"{scope}_pick_body",
         )
         if st.button("填入编辑表单", key=f"{scope}_apply"):
@@ -281,7 +282,7 @@ def draft_tab(engine, sku_id, operator, mode, drafts):
 
 
 def render(engine, mode):
-    st.header("离线内容草稿")
+    st.header("内容草稿")
     st.warning("草稿仅供人工核对；系统不核验事实真伪、素材权利，也不发布或执行平台操作。")
     with Session(engine) as session:
         skus = session.exec(select(Sku).order_by(Sku.sku_id)).all()

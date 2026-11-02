@@ -196,7 +196,7 @@ def test_ui_create_and_approve(monkeypatch, tmp_path):
     assert not any("其他会话" in item.value for item in app.warning)
     with Session(engine) as session:
         assert session.get(ActionProposal, "P-UI").status == "approved"
-    app.radio[0].set_value("异常与复盘").run()
+    navigate(app, "异常与复盘")
     assert not app.exception
 
 
@@ -543,8 +543,7 @@ def test_review_page_displays_utc_input_as_shanghai(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    navigate(app, "本地提案与复盘")
-    app.radio[0].set_value("异常与复盘").run()
+    navigate(app, "异常与复盘")
     next(x for x in app.text_input if x.label.startswith("复盘数据时点")).set_value(
         "2026-10-27T04:00:00Z"
     ).run()

@@ -9,8 +9,8 @@ from xhs_seller.ui_p4 import render_import
 
 
 def render(engine, mode):
-    st.header("数据导入")
-    st.caption("选择文件 → 核对来源 → 预检与差异 → 确认写入 → 查看结果")
+    st.header("导入文件")
+    st.caption("选择文件 → 核对来源 → 预检与差异 → 确认写入 → 查看结果。写入前需要人工确认。")
     if "import_group" not in st.session_state:
         st.session_state.import_group = st.session_state.get("nav_import_group", GROUPS[0])
     group = st.radio("导入内容", GROUPS, key="import_group", horizontal=True)

@@ -232,15 +232,18 @@ def task_view(engine, mode, manager):
 
 def render(engine, mode):
     manager = sync_space(engine, mode)
-    st.header("离线协作工作台")
-    st.warning("离线协作演示：固定规则与模板分工，无真实模型；任务成功不代表可以销售或发布。")
-    st.caption("仅本地会话保留进度，刷新或重启不保证恢复；说明文字仅作备注。最多三个 SKU。")
+    st.header("规则评估")
+    st.warning(
+        "离线协作演示：按固定规则和模板分工，没有接入真实模型。"
+        "评估跑完不代表可以销售或发布。"
+    )
+    st.caption("进度只留在这次打开的页面里，刷新或重启不保证还在。说明文字只作备注。最多三个 SKU。")
     if "m1_flash" in st.session_state:
         st.warning(st.session_state.pop("m1_flash"))
     with Session(engine) as session:
         skus = session.exec(select(Sku).order_by(Sku.sku_id)).all()
     if not skus:
-        st.info("尚未录入 SKU，请到编辑与导入录入候选、报价和 SKU。")
+        st.info("尚未录入 SKU。请先在手工编辑里录入候选、报价和 SKU。")
         return
     st.caption("固定任务：SKU 评估 · 经济性、证据缺口与内容准备")
     labels = {s.sku_id: f"{s.sku_id} · {s.title}" for s in skus}
@@ -249,7 +252,11 @@ def render(engine, mode):
     if "m1_as_of" not in st.session_state and manager.run:
         st.session_state.m1_as_of = manager.run.snapshot.as_of
     ids = st.multiselect(
-        "评估对象（最多 3 个 SKU）", list(labels), format_func=labels.get, key="m1_targets"
+        "评估对象（最多 3 个 SKU）",
+        list(labels),
+        format_func=labels.get,
+        placeholder="选择 SKU",
+        key="m1_targets",
     )
     goal = st.text_area("目标说明（可选，不含个人信息或凭证）", max_chars=500, key="m1_goal")
     value = report_time_input("报告时点（带时区）", key="m1_as_of")

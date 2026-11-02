@@ -10,7 +10,7 @@ from test_m1_ui import ready
 from test_r1 import create
 from test_r1 import engine as engine_fixture
 
-from xhs_seller.ui_navigation import WORKSPACES
+from xhs_seller.ui_navigation import PAGE_LABELS, WORKSPACES
 
 engine = engine_fixture
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,7 +33,7 @@ def test_a46_visible_subpages_and_single_page_without_selector(engine, monkeypat
         assert not app.exception
         key = f"nav_page_{workspace}"
         if len(pages) > 1:
-            assert app.sidebar.radio(key=key).options == pages
+            assert app.sidebar.radio(key=key).options == [PAGE_LABELS[page] for page in pages]
         else:
             assert app.session_state[key] == pages[0]
             assert not any(widget.key == key for widget in app.sidebar.radio)
