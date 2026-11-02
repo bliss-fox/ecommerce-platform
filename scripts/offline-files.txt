@@ -92,6 +92,7 @@ src/xhs_seller/ui_p4.py
 src/xhs_seller/ui_p5.py
 src/xhs_seller/ui_preview.py
 src/xhs_seller/ui_products.py
+src/xhs_seller/ui_shell.py
 src/xhs_seller/ui_time.py
 src/xhs_seller/ui_workbench.py
 start.cmd

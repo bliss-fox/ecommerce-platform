@@ -17,9 +17,9 @@ from xhs_seller.models import ImportBatch, ImportFailure, ProductCandidate, Revi
 
 BASE = Path(__file__).resolve().parents[1]
 GROUPS = {"p1": "候选、报价与研究", "p4": "订单、费用与结算"}
-CONFIRM = {"p1": "确认并原子提交", "p4": "确认并原子提交 P4 数据"}
-SAMPLE = {"p1": "预检合成研究示例", "p4": "预检 P4 合成示例"}
-UPLOAD = {"p1": "预检所选文件", "p4": "预检 P4 所选文件"}
+CONFIRM = {"p1": "确认并原子提交", "p4": "确认写入订单数据"}
+SAMPLE = {"p1": "预检合成研究示例", "p4": "预检合成订单示例"}
+UPLOAD = {"p1": "预检所选文件", "p4": "预检所选订单文件"}
 
 
 def button(app, label):
@@ -39,7 +39,8 @@ def open_app(tmp_path, monkeypatch, namespace, entry):
         navigate(app, "编辑与导入")
         app.radio(key="p1_operation").set_value("CSV 导入").run()
     else:
-        navigate(app, "订单费用导入")
+        navigate(app, "订单成本与对账")
+        app.radio(key="p4_operation").set_value("CSV 导入").run()
     return app, engine
 
 
@@ -63,7 +64,7 @@ def fail_database(engine, target, *, exact=False):
 
 
 def confirm(app, namespace):
-    label = "P4 本地操作者标识" if namespace == "p4" else "本地操作者标识"
+    label = "订单导入操作者标识" if namespace == "p4" else "本地操作者标识"
     next(item for item in app.text_input if item.label == label).set_value("local")
     button(app, CONFIRM[namespace]).click().run()
 

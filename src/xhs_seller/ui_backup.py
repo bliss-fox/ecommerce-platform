@@ -8,8 +8,8 @@ from xhs_seller.services.backup import backup_database, inspect_backup
 
 
 def render(engine, mode):
-    st.header("数据备份")
-    st.caption("备份包含当前数据空间的全部表和审计记录，可能包含私人数据，请妥善保管。")
+    st.header("备份")
+    st.caption("备份包含当前数据空间的全部表和审计记录，可能包含私人数据，请妥善保管。这里不能用来恢复或覆盖数据库。")
     st.caption("快照仅包含生成时已提交的数据；修改数据后需重新生成。备份文件由您选择保存位置。")
     if st.session_state.get("backup_mode") != mode:
         st.session_state.pop("backup_snapshot", None)

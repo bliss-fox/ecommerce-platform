@@ -48,7 +48,7 @@ def test_a32_ui_run_export_navigation_and_space_isolation(monkeypatch, tmp_path)
     assert manager.run.run_id == run.run_id
     app.button(key="m1_content_S-03").click().run()
     assert not app.exception
-    assert app.sidebar.radio[0].value == "内容工作区"
+    assert app.sidebar.radio[0].value == "内容"
     assert app.selectbox(key="p3_sku_合成演示").value == "S-03"
     navigate(app, "离线协作")
     app.button(key="m1_start").click().run()

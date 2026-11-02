@@ -3,8 +3,9 @@
 import streamlit as st
 
 from xhs_seller.services.product_queries import compare_quote, read_catalog
-from xhs_seller.ui_navigation import go, select_sku, sku_links
+from xhs_seller.ui_navigation import PAGE_LABELS, go, select_sku, sku_links
 from xhs_seller.ui_p1 import shanghai
+from xhs_seller.ui_shell import PRODUCT_STATUS, SAMPLE_RESULT, SKU_STATUS, show_status
 
 COST_LABELS = {
     "unit_cost": "采购",
@@ -53,7 +54,9 @@ def quote_details(quote):
         f"起订量：{quote.min_qty if quote.min_qty is not None else '未知'}；代发：{dropship}；"
         f"时效（小时）：{quote.lead_time_hours if quote.lead_time_hours is not None else '未知'}"
     )
-    st.write(f"退货条款：{quote.return_terms or '未知'}；样品：{quote.sample_result}")
+    st.write(
+        f"退货条款：{quote.return_terms or '未知'}；样品：{show_status(SAMPLE_RESULT, quote.sample_result)}"
+    )
     scenario(quote)
     with st.expander(f"报价来源与版本 · {quote.quote_id}"):
         st.write(f"报价时间：{shanghai(quote.quoted_at)}；来源：{quote.source_ref}")
@@ -78,10 +81,10 @@ def economics(sku, quote):
 
 
 def render(engine, mode, page):
-    st.header(page)
+    st.header(PAGE_LABELS.get(page, page))
     catalog = read_catalog(engine)
     if not catalog.products:
-        st.info("尚未录入候选；请先在编辑与导入中录入候选、报价和 SKU。")
+        st.info("尚未录入候选。请先在手工编辑里录入候选、报价和 SKU。")
         st.button("录入候选", on_click=go, args=("编辑与导入",))
         return
     desired = st.session_state.get("nav_sku")
@@ -121,19 +124,22 @@ def render(engine, mode, page):
             sku_links(sku, current_page=page)
         elif page == "SKU 经济性":
             st.info("尚无 SKU；请先录入 SKU。")
-            st.button("编辑与导入", on_click=go, args=("编辑与导入",))
+            st.button("去手工编辑", on_click=go, args=("编辑与导入",))
             return
     with right:
         product = catalog.products[product_id]
         st.subheader(f"{product.product_id} · {product.product_name}")
         st.write(
-            f"类目：{product.category}；状态：{product.status}；风险：{product.risk_notes or '未记录'}"
+            f"类目：{product.category}；状态：{show_status(PRODUCT_STATUS, product.status)}；"
+            f"风险：{product.risk_notes or '未记录'}"
         )
         if sku:
-            st.write(f"SKU：{sku.sku_id} · {sku.title}；状态：{sku.status}")
+            st.write(
+                f"SKU：{sku.sku_id} · {sku.title}；状态：{show_status(SKU_STATUS, sku.status)}"
+            )
             st.write(f"已保存报价：{sku.quote_id}；售价：{amount(sku.sale_price_cents)}")
         else:
-            st.info("此候选尚无 SKU，可先查看报价，再到编辑与导入录入 SKU。")
+            st.info("此候选尚无 SKU。可以先看报价，再到手工编辑录入 SKU。")
         with st.expander("版本与假设详情"):
             st.write(f"候选修订 {product.revision}；更新时间：{shanghai(product.updated_at)}")
             if sku:

@@ -119,7 +119,7 @@ def render_import(engine, mode):
         and st.session_state.get("p4_fingerprint") != fingerprint
     ):
         clear_result("p4")
-    if st.button("预检 P4 所选文件", disabled=not inputs):
+    if st.button("预检所选订单文件", disabled=not inputs):
         preview = prepare_preview(
             engine,
             inputs,
@@ -133,7 +133,7 @@ def render_import(engine, mode):
             st.session_state.p4_mode = mode
             st.session_state.p4_source = "upload"
             st.session_state.p4_fingerprint = fingerprint
-    if mode == "合成演示" and st.button("预检 P4 合成示例", disabled=bool(inputs)):
+    if mode == "合成演示" and st.button("预检合成订单示例", disabled=bool(inputs)):
         directory = Path(__file__).resolve().parents[2] / "examples" / "p4"
         samples = [
             InputFile(kind, name, (directory / name).read_bytes())
@@ -160,8 +160,8 @@ def render_import(engine, mode):
     if not preview_details(preview, {kind: label for kind, (label, _) in FILES.items()}, "p4"):
         return
     with st.form(recovery_key("p4_confirm")):
-        operator = st.text_input("P4 本地操作者标识")
-        confirm = st.form_submit_button("确认并原子提交 P4 数据")
+        operator = st.text_input("订单导入操作者标识")
+        confirm = st.form_submit_button("确认写入订单数据")
     if confirm:
         try:
             commit(engine, preview, operator=operator)
@@ -194,7 +194,11 @@ def render_allocation_proposal(engine):
         return
     by_id = {expense.expense_id: expense for expense in expenses}
     expense_id = st.selectbox("待分摊费用", sorted(by_id))
-    selected = st.multiselect("参与分摊的订单", sorted(order.order_line_id for order in orders))
+    selected = st.multiselect(
+        "参与分摊的订单",
+        sorted(order.order_line_id for order in orders),
+        placeholder="选择订单",
+    )
     if not selected:
         return
     expense = by_id[expense_id]
@@ -410,7 +414,7 @@ def render_order_sources(row):
 
 def render_report(engine, focus_id=None):
     st.caption("报告使用当前修订，不回放历史快照；贡献利润不是净利润或现金流。")
-    as_of = report_time_input("报告 as_of（含时区）", "p4_report_as_of")
+    as_of = report_time_input("报告时点（含时区）", "p4_report_as_of")
     try:
         report = build_report(engine, as_of)
     except ValueError as exc:
@@ -548,12 +552,14 @@ def render_report(engine, focus_id=None):
 
 
 def render(engine, mode, focus_id=None):
-    st.header("订单成本与对账")
+    st.header("订单与结算")
+    st.caption("先看金额和来源，再决定要不要导入修订。贡献利润不是净利润。")
     if focus_id is not None:
         st.session_state.p4_operation = "报表与核对"
         st.session_state.nav_order = focus_id
+    sections = {"报表与核对": "报表与核对", "CSV 导入": "导入修订", "分摊建议": "分摊建议"}
     page = st.radio(
-        "P4 操作", ["报表与核对", "CSV 导入", "分摊建议"], horizontal=True, key="p4_operation"
+        "核对", list(sections), format_func=sections.get, horizontal=True, key="p4_operation"
     )
     if page == "CSV 导入":
         render_import(engine, mode)

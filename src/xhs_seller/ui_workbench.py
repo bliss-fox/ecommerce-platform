@@ -64,8 +64,8 @@ def pager(result, key):
 
 
 def render(engine, mode):
-    st.header("协作工作台 · 经营提醒")
-    st.caption("当前已录入记录；未联网同步。各组分别读取，不代表全店实时原子快照。")
+    st.header("经营工作台")
+    st.caption("打开后先看要核对的事项。只覆盖已经录入的记录，不会联网更新。")
     context = st.session_state.get("wb_context", {})
     page_keys = {"proposals": "wb_proposal_page", **{kind: f"wb_{kind}_page" for kind in GROUPS}}
     for kind, key in page_keys.items():
@@ -75,13 +75,13 @@ def render(engine, mode):
         products, quotes, skus = inventory_counts(engine)
         st.write(f"{products} 个候选 · {quotes} 份报价 · {skus} 个 SKU")
         if not (products or quotes or skus):
-            st.info("尚未录入候选、报价或 SKU，请先在数据管理录入或导入。")
+            st.info("尚未录入候选、报价或 SKU。可以先导入资料，或在手工编辑里逐条录入。")
     except SQLAlchemyError:
         st.error("录入概览读取失败，请核对本地数据库。")
     shortcuts = (
-        ("离线协作", "进入离线协作"),
-        ("编辑与导入", "录入或导入数据"),
-        ("数据备份", "生成数据备份"),
+        ("离线协作", "规则评估"),
+        ("数据导入", "导入资料"),
+        ("编辑与导入", "手工录入"),
     )
     for column, (page, label) in zip(st.columns(len(shortcuts)), shortcuts, strict=True):
         with column:
@@ -156,7 +156,7 @@ def render(engine, mode):
         st.info("此类事项暂时无法读取，请核对报告时点后重新读取；其他正常类别仍可查看。")
         return
     st.caption(
-        f"订单/费用读取时间：{local_time(report['read_at'])}；报告时点：{local_time(report['as_of'])}。四组共用一次 P4 报告。"
+        f"订单与费用读取时间：{local_time(report['read_at'])}；报告时点：{local_time(report['as_of'])}。这四组来自同一次核对。"
     )
     if not report["order_count"]:
         st.info("尚未录入订单；没有结算记录不等于到账为零。")

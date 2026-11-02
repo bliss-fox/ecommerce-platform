@@ -82,7 +82,7 @@ def test_report_distinguishes_no_assigned_expense_from_recorded_zero(monkeypatch
     )
     assert not preview.errors
     commit(engine, preview, operator="local")
-    next(item for item in app.text_input if item.label.startswith("报告 as_of")).set_value(
+    next(item for item in app.text_input if item.label.startswith("报告时点")).set_value(
         "2026-10-27T12:00:00+08:00"
     ).run()
     assert not app.exception
@@ -121,17 +121,17 @@ def test_p4_sample_requires_confirmation_and_shows_report(monkeypatch, tmp_path)
     navigate(app, "订单成本与对账")
     assert not app.exception
     app.radio[0].set_value("CSV 导入").run()
-    next(button for button in app.button if button.label == "预检 P4 合成示例").click().run()
+    next(button for button in app.button if button.label == "预检合成订单示例").click().run()
     assert not app.exception
     with Session(engine) as session:
         assert not session.exec(select(OrderLine)).all()
-    next(item for item in app.text_input if item.label == "P4 本地操作者标识").set_value("local")
-    app.button(key="FormSubmitter:p4_confirm-确认并原子提交 P4 数据").click().run()
+    next(item for item in app.text_input if item.label == "订单导入操作者标识").set_value("local")
+    app.button(key="FormSubmitter:p4_confirm-确认写入订单数据").click().run()
     assert not app.exception
     with Session(engine) as session:
         assert len(session.exec(select(OrderLine)).all()) == 5
     app.radio[0].set_value("报表与核对").run()
-    next(item for item in app.text_input if item.label.startswith("报告 as_of")).set_value(
+    next(item for item in app.text_input if item.label.startswith("报告时点")).set_value(
         "2026-10-27T12:00:00+08:00"
     ).run()
     assert not app.exception
@@ -158,7 +158,7 @@ def test_p4_sample_requires_confirmation_and_shows_report(monkeypatch, tmp_path)
         downloads[label] = data
 
     monkeypatch.setattr(st, "download_button", capture)
-    next(item for item in app.text_input if item.label.startswith("报告 as_of")).set_value(
+    next(item for item in app.text_input if item.label.startswith("报告时点")).set_value(
         "2026-10-27T04:00:00Z"
     ).run()
     assert any("2026-10-27T12:00:00+08:00" in item.value for item in app.caption)
@@ -249,7 +249,7 @@ def test_offsetting_settlement_differences_remain_visible(monkeypatch, tmp_path)
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
     navigate(app, "订单成本与对账")
-    next(item for item in app.text_input if item.label.startswith("报告 as_of")).set_value(
+    next(item for item in app.text_input if item.label.startswith("报告时点")).set_value(
         "2026-10-27T12:00:00+08:00"
     ).run()
     assert not app.exception
@@ -273,9 +273,9 @@ def test_allocation_proposal_is_visible_and_does_not_write(monkeypatch, tmp_path
     ).run()
     navigate(app, "订单成本与对账")
     app.radio[0].set_value("CSV 导入").run()
-    next(button for button in app.button if button.label == "预检 P4 合成示例").click().run()
-    next(item for item in app.text_input if item.label == "P4 本地操作者标识").set_value("local")
-    app.button(key="FormSubmitter:p4_confirm-确认并原子提交 P4 数据").click().run()
+    next(button for button in app.button if button.label == "预检合成订单示例").click().run()
+    next(item for item in app.text_input if item.label == "订单导入操作者标识").set_value("local")
+    app.button(key="FormSubmitter:p4_confirm-确认写入订单数据").click().run()
     data = (
         "expense_id,revision,updated_at,expense_date,category,amount,basis,allocation_mode,order_line_id,source_ref,remark\n"
         "E-POOL-NEW,1,2026-10-27T08:00:00+08:00,2026-10-20,marketing,0.10,actual,unallocated,,fixture://expense/new,=1+1\n"
@@ -485,22 +485,22 @@ def test_p4_replaced_order_requires_new_confirmation_before_commit(monkeypatch, 
     next(item for item in app.text_input if item.label == "费用 CSV").set_value("selected").run()
     app.checkbox(key="p4_mapping_合成演示").check().run()
     app.checkbox(key="p4_refunds_excluded_合成演示").check().run()
-    next(item for item in app.button if item.label == "预检 P4 所选文件").click().run()
-    assert any(item.label == "确认并原子提交 P4 数据" for item in app.button)
+    next(item for item in app.button if item.label == "预检所选订单文件").click().run()
+    assert any(item.label == "确认写入订单数据" for item in app.button)
 
     next(item for item in app.text_input if item.label == "订单行 CSV").set_value("B").run()
     assert not app.checkbox(key="p4_mapping_合成演示").value
     assert app.checkbox(key="p4_refunds_excluded_合成演示").value
     assert any("相关文件已变更" in item.value for item in app.info)
-    assert not any(item.label == "确认并原子提交 P4 数据" for item in app.button)
-    next(item for item in app.button if item.label == "预检 P4 所选文件").click().run()
+    assert not any(item.label == "确认写入订单数据" for item in app.button)
+    next(item for item in app.button if item.label == "预检所选订单文件").click().run()
     assert any("存在错误" in item.value for item in app.error)
-    assert not any(item.label == "确认并原子提交 P4 数据" for item in app.button)
+    assert not any(item.label == "确认写入订单数据" for item in app.button)
     app.checkbox(key="p4_mapping_合成演示").check().run()
-    next(item for item in app.button if item.label == "预检 P4 所选文件").click().run()
+    next(item for item in app.button if item.label == "预检所选订单文件").click().run()
     assert not app.error and not app.exception
-    next(item for item in app.text_input if item.label == "P4 本地操作者标识").set_value("local")
-    app.button(key="FormSubmitter:p4_confirm-确认并原子提交 P4 数据").click().run()
+    next(item for item in app.text_input if item.label == "订单导入操作者标识").set_value("local")
+    app.button(key="FormSubmitter:p4_confirm-确认写入订单数据").click().run()
     assert not app.exception
     with Session(engine) as session:
         assert session.get(OrderLine, "OL-NEW-A") is None

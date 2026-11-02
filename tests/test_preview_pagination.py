@@ -112,7 +112,7 @@ def test_p4_preview_pages_changes_and_warnings_independently(monkeypatch, tmp_pa
     navigate(app, "订单成本与对账")
     app.radio[0].set_value("CSV 导入").run()
     app.checkbox(key="p4_mapping_合成演示").check().run()
-    next(button for button in app.button if button.label == "预检 P4 所选文件").click().run()
+    next(button for button in app.button if button.label == "预检所选订单文件").click().run()
     assert not app.exception and not app.error
     assert len(app.get("expander")) == 50
     assert len([item for item in app.warning if "未知或未归属费用" in item.value]) == 50
@@ -121,8 +121,8 @@ def test_p4_preview_pages_changes_and_warnings_independently(monkeypatch, tmp_pa
     next(item for item in app.number_input if item.label == "预检变更页").set_value(3).run()
     assert len(app.get("expander")) == 1
     assert "OL-BULK-101" in app.get("expander")[0].label
-    next(item for item in app.text_input if item.label == "P4 本地操作者标识").set_value("local")
-    app.button(key="FormSubmitter:p4_confirm-确认并原子提交 P4 数据").click().run()
+    next(item for item in app.text_input if item.label == "订单导入操作者标识").set_value("local")
+    app.button(key="FormSubmitter:p4_confirm-确认写入订单数据").click().run()
     assert not app.exception and not app.error
     with Session(engine) as session:
         assert len(session.exec(select(OrderLine)).all()) == 101

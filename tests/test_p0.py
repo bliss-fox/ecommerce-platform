@@ -141,7 +141,7 @@ def test_a01_three_pages(monkeypatch, tmp_path):
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
     assert not app.exception
-    assert any("纯合成演示数据" in item.value for item in app.warning)
+    assert any("纯合成演示数据" in item.value for item in app.sidebar.warning)
     assert any("3 个候选" in item.value for item in app.markdown)
     navigate(app, "候选与报价")
     assert not app.exception

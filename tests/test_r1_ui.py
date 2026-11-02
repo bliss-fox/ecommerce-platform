@@ -24,12 +24,12 @@ def test_a23_six_groups_sku_handoff_and_saved_quote_unchanged(engine, monkeypatc
     app = open_app(engine, monkeypatch)
     assert not app.exception
     assert app.sidebar.radio[0].options == [
-        "协作工作台",
-        "选品工作区",
-        "内容工作区",
+        "工作台",
+        "选品",
+        "内容",
         "经营核对",
-        "决策记录",
-        "数据管理",
+        "决策",
+        "数据",
     ]
     navigate(app, "SKU 经济性")
     app.selectbox(key="nav_product_sku_合成演示").set_value("S-03").run()
@@ -186,7 +186,7 @@ def test_a26_all_legacy_pages_are_reachable(engine, monkeypatch):
         "异常与复盘",
         "本地提案与复盘",
         "编辑与导入",
-        "订单费用导入",
+        "数据导入",
         "数据备份",
         "经营提醒",
     ):

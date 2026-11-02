@@ -18,7 +18,7 @@ from xhs_seller.services.imports import InputFile, commit, preflight
     ("navigation", "page", "module_name"),
     [
         ("订单成本与对账", "报表与核对", "ui_p4"),
-        ("本地提案与复盘", "异常与复盘", "ui_p5"),
+        ("异常与复盘", None, "ui_p5"),
         ("研究与评分", None, "ui_p2"),
     ],
 )

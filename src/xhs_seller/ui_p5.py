@@ -30,6 +30,14 @@ STATUS_FILTERS = {
     "已到期": "expired",
 }
 TARGET_FILTERS = {"全部目标": None, "候选": "product", "SKU": "sku", "订单": "order"}
+ACTIONS = {
+    "reprice": "调整价格",
+    "list": "准备上架",
+    "purchase": "考虑采购",
+    "refund": "处理退款",
+    "advertise": "考虑投放",
+    "other": "其他",
+}
 STATUS_LABELS = {value: label for label, value in STATUS_FILTERS.items()}
 TARGET_LABELS = {value: label for label, value in TARGET_FILTERS.items()}
 
@@ -79,7 +87,7 @@ def render_create(engine, mode):
             "sku": [row.sku_id for row in session.exec(select(Sku)).all()],
             "order": [row.order_line_id for row in session.exec(select(OrderLine)).all()],
         }
-    target_type = st.selectbox("目标类型", list(targets))
+    target_type = st.selectbox("目标类型", list(targets), format_func=TARGET_LABELS.get)
     if not targets[target_type]:
         st.info("此类型暂无目标记录。")
         return
@@ -87,9 +95,7 @@ def render_create(engine, mode):
     st.caption("切换目标会清空未提交的提案内容，请先确认目标。")
     with st.form(recovery_key(f"p5_create_{mode}_{target_type}_{target_id}")):
         proposal_id = st.text_input("提案 ID（字母、数字、下划线或短横线）")
-        action = st.selectbox(
-            "建议类型", ["reprice", "list", "purchase", "refund", "advertise", "other"]
-        )
+        action = st.selectbox("建议类型", list(ACTIONS), format_func=ACTIONS.get)
         before = st.text_area("变更前快照")
         after = st.text_area("建议后快照")
         reason = st.text_area("建议原因")
@@ -219,7 +225,7 @@ def render_decisions(engine, mode, focus_id=None):
     if proposal.status == "proposed":
         st.caption("到期由人工确认；决定后不能更改，变更意图请创建新提案。")
         with st.form(recovery_key(f"p5_decide_{mode}_{selected}_{proposal.revision}_{form_version}")):
-            decision = st.selectbox("决定", ["approved", "rejected", "cancelled", "expired"])
+            decision = st.selectbox("决定", list(DECISIONS), format_func=DECISIONS.get)
             note = st.text_area("决定依据")
             operator = st.text_input("决定人本地标识")
             submit = st.form_submit_button("记录本地决定")
@@ -252,6 +258,8 @@ def render_decisions(engine, mode, focus_id=None):
 
 
 def render_review(engine):
+    st.header("异常复盘")
+    st.caption("按当前订单记录列出缺口和差异，并生成一份草稿。这不是净利润，也不会回放更早的版本。")
     as_of = report_time_input("复盘数据时点（含时区）", "p5_review_as_of")
     try:
         report, issues, draft = review(engine, as_of)
@@ -273,14 +281,24 @@ def render_review(engine):
     st.download_button("下载复盘草稿", draft, "local-review.md", "text/markdown")
 
 
+DECISIONS = {
+    "approved": "批准（只记在本地）",
+    "rejected": "拒绝",
+    "cancelled": "取消",
+    "expired": "标记到期",
+}
+PROPOSAL_SECTIONS = ("创建提案", "审核与待办")
+
+
 def render(engine, mode, focus_id=None):
-    st.header("本地提案与复盘")
+    st.header("提案与决定")
+    st.caption("批准、拒绝和取消都只写在这台电脑上，不会去店铺里执行。")
     if focus_id is not None:
         st.session_state.p5_operation = "审核与待办"
-    page = st.radio("P5 操作", ["创建提案", "审核与待办", "异常与复盘"], horizontal=True, key="p5_operation")
+    if st.session_state.get("p5_operation") not in PROPOSAL_SECTIONS:
+        st.session_state.p5_operation = PROPOSAL_SECTIONS[0]
+    page = st.radio("处理", PROPOSAL_SECTIONS, horizontal=True, key="p5_operation")
     if page == "创建提案":
         render_create(engine, mode)
-    elif page == "审核与待办":
-        render_decisions(engine, mode, focus_id)
     else:
-        render_review(engine)
+        render_decisions(engine, mode, focus_id)

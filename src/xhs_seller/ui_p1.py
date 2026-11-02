@@ -15,7 +15,6 @@ from sqlmodel import Session, select
 
 from xhs_seller.models import ImportBatch, ImportFailure, RevisionAudit
 from xhs_seller.services.imports import (
-    CONTRACT,
     MONEY_FIELDS,
     SPECS,
     TIME_FIELDS,
@@ -254,7 +253,7 @@ def edit_form(engine, mode):
 def import_form(engine, mode):
     ensure_group(GROUPS[0])
     file_step("p1", NAMES)
-    st.caption(f"数据契约：{CONTRACT}。可在同一批次中上传多个类型，全部预检通过后才可提交。")
+    st.caption("可以在同一批次里上传多个类型。全部预检通过后才能提交。")
     files = []
     for kind, label in NAMES.items():
         upload = st.file_uploader(f"{label} CSV", type="csv", key=f"upload_{mode}_{kind}")
@@ -434,7 +433,7 @@ def history(engine, mode):
 
 
 def render(engine, mode):
-    st.header("编辑、导入与审计")
+    st.header("手工编辑与修订")
     target = st.session_state.pop("p1_target", None)
     if target:
         for key in list(st.session_state):

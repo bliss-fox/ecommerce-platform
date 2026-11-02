@@ -4,3 +4,35 @@ gatherUsageStats = false
 [server]
 address = "127.0.0.1"
 headless = true
+
+[theme]
+base = "light"
+primaryColor = "#1F6B4A"
+backgroundColor = "#F3F6F4"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1C2822"
+linkColor = "#1B5C40"
+borderColor = "#D5E2DA"
+dataframeBorderColor = "#D5E2DA"
+dataframeHeaderBackgroundColor = "#E7F0EB"
+showWidgetBorder = true
+showSidebarBorder = true
+baseRadius = "0.7rem"
+buttonRadius = "0.45rem"
+baseFontSize = 15
+headingFontSizes = ["1.7rem", "1.35rem", "1.15rem"]
+headingFontWeights = [600, 600, 600]
+metricValueFontSize = "1.65rem"
+metricValueFontWeight = 600
+paddingTop = "1.15rem"
+paddingBottom = "2.5rem"
+font = "sans-serif"
+
+[theme.sidebar]
+backgroundColor = "#163028"
+secondaryBackgroundColor = "#214338"
+textColor = "#F4F8F5"
+primaryColor = "#8FCBAA"
+borderColor = "#2E5244"
+linkColor = "#D5EDE0"
+headingFontSizes = ["1.35rem", "1.05rem", "0.95rem"]
