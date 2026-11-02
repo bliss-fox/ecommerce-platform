@@ -115,17 +115,22 @@ def build_report(engine, as_of):
                 "adjustment": {},
                 "settlement": {},
             }
+            source_records = {kind: {} for kind in revisions}
+            source_records["order"][order.order_line_id] = order.model_dump()
             for category in CATEGORIES:
                 if category not in sources:
                     costs[category] = (None, "unknown")
                     continue
                 expense, amount, allocation = sources[category]
                 revisions["expense"][expense.expense_id] = expense.revision
+                source_records["expense"][expense.expense_id] = expense.model_dump()
                 if allocation is not None:
                     revisions["allocation"][allocation.allocation_id] = allocation.revision
+                    source_records["allocation"][allocation.allocation_id] = allocation.model_dump()
                 relevant = adjustments_by_source.get((expense.expense_id, order.order_line_id), [])
                 for adjustment in relevant:
                     revisions["adjustment"][adjustment.adjustment_id] = adjustment.revision
+                    source_records["adjustment"][adjustment.adjustment_id] = adjustment.model_dump()
                 costs[category] = apply_adjustments(
                     category,
                     amount,
@@ -142,6 +147,7 @@ def build_report(engine, as_of):
             reconciliation = None
             if settlement is not None:
                 revisions["settlement"][settlement.settlement_id] = settlement.revision
+                source_records["settlement"][settlement.settlement_id] = settlement.model_dump()
                 reconciliation = reconcile(
                     order.paid_amount_cents,
                     order.refunded_amount_cents,
@@ -159,6 +165,7 @@ def build_report(engine, as_of):
                     "categories": costs,
                     "settlement": reconciliation,
                     "revisions": revisions,
+                    "source_records": source_records,
                 }
             )
         unallocated = [e for e in expenses if e.allocation_mode == "unallocated"]

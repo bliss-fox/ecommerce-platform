@@ -1,6 +1,7 @@
 """Local-only proposal decisions and evidence-backed P4 review."""
 
 import json
+from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -22,6 +23,81 @@ from xhs_seller.services.p4_report import build_report
 ACTIONS = {"list", "reprice", "purchase", "refund", "advertise", "other"}
 TARGETS = {"product": ProductCandidate, "sku": Sku, "order": OrderLine}
 DECISIONS = {"approved", "rejected", "cancelled", "expired"}
+
+
+class ProposalAuditError(ValueError):
+    """The proposal and its local history cannot be reconciled."""
+
+
+def validate_proposal_history(proposal, audits):
+    """Check the single creation and optional terminal decision in one read snapshot.
+
+    P5 has no editable proposal state: revision 1 is created, revision 2 is terminal.
+    This checks consistency, not authenticity of a locally editable database.
+    """
+    try:
+        current = proposal.model_dump()
+        initial = dict(
+            current,
+            revision=1,
+            updated_at=proposal.created_at,
+            status="proposed",
+            decided_at=None,
+            decided_by=None,
+        )
+        created_at = datetime.fromisoformat(proposal.created_at)
+        updated_at = datetime.fromisoformat(proposal.updated_at)
+        refs = json.loads(proposal.evidence_refs_json)
+        if (
+            created_at.utcoffset() is None
+            or updated_at.utcoffset() is None
+            or not isinstance(refs, list)
+            or not refs
+            or any(not isinstance(ref, str) or not ref.strip() for ref in refs)
+        ):
+            raise ValueError
+        creations = [item for item in audits if item.old_json is None]
+        decisions = [item for item in audits if item.old_json is not None]
+        if len(creations) != 1:
+            raise ValueError
+        creation = creations[0]
+        if (
+            creation.proposal_id != proposal.proposal_id
+            or dumps(json.loads(creation.new_json)) != dumps(initial)
+            or creation.recorded_at != proposal.created_at
+        ):
+            raise ValueError
+        validate_operator(creation.operator)
+        clean_text(creation.decision_note, required=True)
+        if proposal.status == "proposed":
+            if current != initial or decisions:
+                raise ValueError
+            return None
+        if (
+            proposal.status not in DECISIONS
+            or proposal.revision != 2
+            or proposal.updated_at != proposal.decided_at
+            or updated_at <= created_at
+            or len(decisions) != 1
+        ):
+            raise ValueError
+        decision = decisions[0]
+        if (
+            decision.proposal_id != proposal.proposal_id
+            or dumps(json.loads(decision.old_json)) != dumps(initial)
+            or dumps(json.loads(decision.new_json)) != dumps(current)
+            or decision.operator != proposal.decided_by
+            or decision.recorded_at != proposal.decided_at
+        ):
+            raise ValueError
+        validate_operator(decision.operator)
+        clean_text(decision.decision_note, required=True)
+        return decision
+    except (ValueError, TypeError):
+        # Never include corrupt snapshots or JSON decoder excerpts in an error.
+        raise ProposalAuditError(
+            "提案审计缺失、损坏或不一致，无法记录决定或导出待办；请先备份并人工核对。"
+        ) from None
 
 
 def create_proposal(
@@ -105,6 +181,10 @@ def decide_proposal(engine, *, proposal_id, expected_revision, decision, note, o
             raise ValueError("提案不存在")
         if proposal.revision != expected_revision or proposal.status != "proposed":
             raise ValueError("提案已变化或已结束，请刷新；改变意图须创建新提案")
+        audits = session.exec(
+            select(ProposalAudit).where(ProposalAudit.proposal_id == proposal_id)
+        ).all()
+        validate_proposal_history(proposal, audits)
         old = proposal.model_dump()
         timestamp = validate_revision_time(now(), proposal.updated_at)
         proposal.status = decision
@@ -136,18 +216,7 @@ def export_todo(engine, proposal_id):
         audits = session.exec(
             select(ProposalAudit).where(ProposalAudit.proposal_id == proposal_id)
         ).all()
-        decisions = [
-            item
-            for item in audits
-            if item.old_json is not None
-            and json.loads(item.old_json)["status"] == "proposed"
-            and json.loads(item.new_json) == proposal.model_dump()
-            and item.operator == proposal.decided_by
-            and item.recorded_at == proposal.decided_at
-        ]
-        if len(decisions) != 1:
-            raise ValueError("批准决策审计缺失或不一致，无法导出待办")
-        decision = decisions[0]
+        decision = validate_proposal_history(proposal, audits)
         lines = [
             "# 本地待办（未执行）",
             "",

@@ -19,6 +19,7 @@ from xhs_seller.models import (
     SupplierQuote,
 )
 from xhs_seller.services.scoring import rank, score, timestamp
+from xhs_seller.ui_navigation import select_sku, sku_links
 from xhs_seller.ui_time import report_time_input
 
 DIMENSIONS = {
@@ -78,16 +79,6 @@ def localize(value):
 
 def render_result(sku, result):
     st.subheader(f"{sku.sku_code} · {STATUSES[result['status']]}")
-    st.write(
-        f"规则 {result['rule_version']}；报告时间 {localize({'as_of': result['as_of']})['as_of']}；候选修订 {result['product_revision']}，SKU 修订 {result['sku_revision']}，报价 {result['quote_id']} 修订 {result['quote_revision']}"
-    )
-    if result["total"] is None:
-        st.write(f"完整总分：不可计算；已知分项贡献小计：{result['subtotal']:.2f}")
-    else:
-        st.write(f"总分：{result['total']:.2f}")
-    st.write(
-        f"证据覆盖率：{result['coverage']}%（已填 {result['coverage'] // 10}/10 槽；不是预测准确率）"
-    )
     if result["blocked"]:
         st.error("存在失败阻断；只有同一记录更高修订的有依据 pass 才能解除。")
         st.json(localize(result["blocked"]))
@@ -106,6 +97,17 @@ def render_result(sku, result):
         )
     if result["contradiction_keys"]:
         st.warning("存在有效反驳证据，需人工复核。")
+    if result["total"] is None:
+        st.write(f"完整总分：不可计算；已知分项贡献小计：{result['subtotal']:.2f}")
+    else:
+        st.write(f"总分：{result['total']:.2f}")
+    st.write(
+        f"证据覆盖率：{result['coverage']}%（已填 {result['coverage'] // 10}/10 槽；不是预测准确率）"
+    )
+    with st.expander("评分规则与来源版本"):
+        st.write(
+            f"规则 {result['rule_version']}；报告时间 {localize({'as_of': result['as_of']})['as_of']}；候选修订 {result['product_revision']}，SKU 修订 {result['sku_revision']}，报价 {result['quote_id']} 修订 {result['quote_revision']}"
+        )
     st.subheader("评分分项")
     for key, label in DIMENSIONS.items():
         value = result["dimensions"][key]
@@ -216,8 +218,12 @@ def render(engine, mode):
     except ValueError as exc:
         st.error(f"报告时间无效：{exc}")
         return
-    sku_id = st.selectbox("选择 SKU", [row.sku_id for row in skus], key=f"p2_sku_{mode}")
+    sku_id = select_sku(skus, mode, f"p2_sku_{mode}")
+    if sku_id is None:
+        return
     sku = next(row for row in skus if row.sku_id == sku_id)
+    sku_links(sku, current_page="研究与评分")
+    st.write(f"已保存报价：{sku.quote_id}；下方选择仅用于临时评分，不修改 SKU。")
     quote_ids = sorted(q.quote_id for q in quotes.values() if q.product_id == sku.product_id)
     quote_id = st.selectbox(
         "评分使用的报价",

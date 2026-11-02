@@ -1,7 +1,9 @@
+
 import socket
 from pathlib import Path
 
 import pytest
+from navigation_helpers import navigate
 from sqlalchemy import event
 from sqlmodel import Session, select
 from streamlit.testing.v1 import AppTest
@@ -171,7 +173,7 @@ def test_ui_create_and_approve(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("本地提案与复盘").run()
+    navigate(app, "本地提案与复盘")
     for label, value in [
         ("提案 ID（字母、数字、下划线或短横线）", "P-UI"),
         ("创建人本地标识", "local"),
@@ -233,7 +235,7 @@ def test_review_form_does_not_carry_decision_between_proposals(monkeypatch, tmp_
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("本地提案与复盘").run()
+    navigate(app, "本地提案与复盘")
     app.radio[0].set_value("审核与待办").run()
     next(x for x in app.text_area if x.label == "决定依据").set_value("仅适用于提案 A")
     next(x for x in app.selectbox if x.label == "决定").set_value("rejected")
@@ -258,7 +260,7 @@ def test_p5_forms_do_not_carry_state_between_data_spaces(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("本地提案与复盘").run()
+    navigate(app, "本地提案与复盘")
     next(x for x in app.text_area if x.label == "建议原因").set_value("演示原因")
     next(x for x in app.button if x.label == "创建待审提案").click().run()
     assert app.error
@@ -285,7 +287,7 @@ def test_create_form_does_not_carry_snapshot_to_another_target(monkeypatch, tmp_
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("本地提案与复盘").run()
+    navigate(app, "本地提案与复盘")
     assert next(x for x in app.selectbox if x.label == "目标 ID").value == "PC-01"
     next(x for x in app.text_area if x.label == "变更前快照").set_value("仅属于 PC-01")
     next(x for x in app.button if x.label == "创建待审提案").click().run()
@@ -343,7 +345,7 @@ def test_competing_decision_not_silently_mistaken_for_local_submit(monkeypatch, 
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("本地提案与复盘").run()
+    navigate(app, "本地提案与复盘")
     app.radio[0].set_value("审核与待办").run()
     next(x for x in app.selectbox if x.label == "决定").set_value("rejected")
     next(x for x in app.text_area if x.label == "决定依据").set_value("本会话拒绝")
@@ -384,7 +386,7 @@ def test_proposal_and_audit_share_snapshot_during_concurrent_decision(monkeypatc
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("本地提案与复盘").run()
+    navigate(app, "本地提案与复盘")
     writes = []
 
     def concurrent_decision(conn, cursor, statement, parameters, context, executemany):
@@ -480,7 +482,7 @@ def test_approved_todo_does_not_export_mismatched_audit(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("本地提案与复盘").run()
+    navigate(app, "本地提案与复盘")
     app.radio[0].set_value("审核与待办").run()
     assert not app.exception
     assert any("审计" in error.value for error in app.error)
@@ -507,7 +509,7 @@ def test_proposal_audit_ui_shows_structured_snapshots_and_local_times(monkeypatc
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("本地提案与复盘").run()
+    navigate(app, "本地提案与复盘")
     app.radio[0].set_value("审核与待办").run()
     assert not app.exception
     proposal = json.loads(app.json[0].value)
@@ -541,7 +543,7 @@ def test_review_page_displays_utc_input_as_shanghai(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("本地提案与复盘").run()
+    navigate(app, "本地提案与复盘")
     app.radio[0].set_value("异常与复盘").run()
     next(x for x in app.text_input if x.label.startswith("复盘数据时点")).set_value(
         "2026-10-27T04:00:00Z"

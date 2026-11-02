@@ -246,6 +246,24 @@ def save_asset(
         return obj
 
 
+def preview_draft(facts, assets):
+    """Pure template shared by saved drafts and read-only collaboration."""
+    pending = [f"待核实：{fact.text}" for fact in facts if fact.status != "verified"]
+    if not any(f.status == "verified" for f in facts):
+        pending.append("暂无已核实事实；请先人工核验并记录依据。")
+    if not assets:
+        pending.append("尚无素材记录；请核实素材及权利。")
+    pending.extend(f"待核实素材权利：{a.local_path}" for a in assets if a.rights_basis == "unknown")
+    return {
+        "title": PLACEHOLDER,
+        "body": "\n".join(dict.fromkeys(f.text for f in facts if f.status == "verified")),
+        "shot_list": DEFAULT_SHOTS,
+        "needs_verification": "\n".join(pending),
+        "facts": [f.model_dump() for f in facts],
+        "assets": [a.model_dump() for a in assets],
+    }
+
+
 def create_draft(engine, *, sku_id, operator):
     operator = validate_operator(operator)
     with Session(engine) as session:
@@ -260,6 +278,7 @@ def create_draft(engine, *, sku_id, operator):
         ).all()
         snapshot_facts = [fact.model_dump() for fact in facts]
         snapshot_assets = [asset.model_dump() for asset in assets]
+        preview = preview_draft(facts, assets)
         time = now()
         obj = ContentDraft(
             draft_id=str(uuid4()),
@@ -269,9 +288,9 @@ def create_draft(engine, *, sku_id, operator):
             updated_at=time,
             facts_json=dumps(snapshot_facts),
             assets_json=dumps(snapshot_assets),
-            title=PLACEHOLDER,
-            body="\n".join(dict.fromkeys(fact.text for fact in facts if fact.status == "verified")),
-            shot_list=DEFAULT_SHOTS,
+            title=preview["title"],
+            body=preview["body"],
+            shot_list=preview["shot_list"],
             needs_verification="",
             status="draft",
         )

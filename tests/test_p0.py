@@ -1,7 +1,9 @@
+
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from navigation_helpers import navigate
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -141,11 +143,14 @@ def test_a01_three_pages(monkeypatch, tmp_path):
     assert not app.exception
     assert any("纯合成演示数据" in item.value for item in app.warning)
     assert any("3 个候选" in item.value for item in app.markdown)
-    app.sidebar.radio[0].set_value("候选与报价").run()
+    navigate(app, "候选与报价")
     assert not app.exception
     assert sum("合成甲工厂" in item.value for item in app.markdown) == 1
+    app.selectbox(key="r2_product").set_value("PC-03").run()
     assert any("Q-03B" in item.value for item in app.markdown)
-    app.sidebar.radio[0].set_value("SKU 经济性").run()
+    navigate(app, "SKU 经济性")
+    app.selectbox(key="nav_product_sku_合成演示").set_value("S-01").run()
     assert not app.exception
     assert any("¥8.40" in item.value for item in app.markdown)
+    app.selectbox(key="nav_product_sku_合成演示").set_value("S-03").run()
     assert any("不可完整计算" in item.value for item in app.markdown)

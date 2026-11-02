@@ -1,8 +1,10 @@
+
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
+from navigation_helpers import navigate
 from sqlmodel import Session
 from streamlit.testing.v1 import AppTest
 
@@ -61,7 +63,7 @@ def test_default_report_time_includes_recent_subsecond_revision(
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value(navigation).run()
+    navigate(app, navigation)
     if page and app.radio[0].value != page:
         app.radio[0].set_value(page).run()
     assert not app.exception

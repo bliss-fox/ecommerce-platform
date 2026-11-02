@@ -13,11 +13,14 @@ from xhs_seller.services.drafts import (
     PLACEHOLDER,
     StaleDraftError,
     create_draft,
+    preview_draft,
     render_markdown,
     save_asset,
     save_draft,
     save_fact,
 )
+from xhs_seller.ui_database import recovery_key
+from xhs_seller.ui_navigation import select_sku, sku_links
 
 KIND_LABELS = {"product_fact": "商品事实", "usage_experience": "使用经历"}
 FACT_STATUS = {"unverified": "待核实", "verified": "人工已核实"}
@@ -73,7 +76,7 @@ def fact_tab(engine, sku_id, operator, mode, facts):
     form_id = f"p3_fact_form_{mode}_{sku_id}_{selected}"
     if existing:
         form_id += f"_v{existing.revision}"
-    with st.form(form_id):
+    with st.form(recovery_key(form_id)):
         kinds = list(KIND_LABELS)
         kind = st.selectbox(
             "事实类型",
@@ -137,7 +140,7 @@ def asset_tab(engine, sku_id, operator, mode, assets):
     form_id = f"p3_asset_form_{mode}_{sku_id}_{selected}"
     if existing:
         form_id += f"_v{existing.revision}"
-    with st.form(form_id):
+    with st.form(recovery_key(form_id)):
         path = st.text_input("本地路径索引", value=existing.local_path if existing else "")
         choices = list(RIGHTS_LABELS)
         basis = st.selectbox(
@@ -197,11 +200,44 @@ def draft_tab(engine, sku_id, operator, mode, drafts):
     st.write(f"草稿修订 {draft.revision}；当前状态：{DRAFT_STATUS[draft.status]}。")
     st.caption("修改已审核内容时，先保存为草稿，再单独审核；审核只表示内部状态。")
     revision_key = track_form_revision(mode, sku_id, "draft", selected, draft.revision)
-    with st.form(f"p3_draft_form_{mode}_{sku_id}_{selected}_v{draft.revision}"):
-        title = st.text_input(
-            "标题", value=draft.title, help=f"可用 {PLACEHOLDER} 或完整的已核实事实原文。"
+    try:
+        markdown = render_markdown(engine, draft.draft_id)
+    except StaleDraftError as exc:
+        st.error(str(exc))
+        st.info("当前草稿不能编辑或导出。请核对上方内容准备清单，再生成新草稿。")
+        return
+    scope = recovery_key(f"p3_editor_{mode}_{sku_id}_{selected}_v{draft.revision}")
+    verified = list(
+        dict.fromkeys(
+            item["text"] for item in json.loads(draft.facts_json) if item["status"] == "verified"
         )
-        body = st.text_area("事实正文（每行一条）", value=draft.body, height=140)
+    )
+    with st.expander("从已核实事实填入标题与正文"):
+        st.caption(
+            "选择只填入未提交表单，不保存。正文按选择顺序填入，可删减或调整顺序；不得改写事实原文。"
+        )
+        chosen_title = st.selectbox(
+            "选用标题事实",
+            [PLACEHOLDER] + verified,
+            index=([PLACEHOLDER] + verified).index(draft.title),
+            key=f"{scope}_pick_title",
+        )
+        chosen_body = st.multiselect(
+            "选用正文事实（按选择顺序）",
+            verified,
+            default=draft.body.splitlines(),
+            key=f"{scope}_pick_body",
+        )
+        if st.button("填入编辑表单", key=f"{scope}_apply"):
+            st.session_state[f"{scope}_title"] = chosen_title
+            st.session_state[f"{scope}_body"] = "\n".join(chosen_body)
+    for field, value in (("title", draft.title), ("body", draft.body)):
+        st.session_state.setdefault(f"{scope}_{field}", value)
+    with st.form(recovery_key(f"p3_draft_form_{mode}_{sku_id}_{selected}_v{draft.revision}")):
+        title = st.text_input(
+            "标题", key=f"{scope}_title", help=f"可用 {PLACEHOLDER} 或完整的已核实事实原文。"
+        )
+        body = st.text_area("事实正文（每行一条）", key=f"{scope}_body", height=140)
         shots = st.text_area(
             "拍摄清单（每行一项）",
             value=draft.shot_list,
@@ -234,11 +270,6 @@ def draft_tab(engine, sku_id, operator, mode, drafts):
         else:
             st.session_state[revision_key] = draft.revision + 1
             flash_and_refresh("草稿修订已保存；内部审核不代表发布。")
-    try:
-        markdown = render_markdown(engine, draft.draft_id)
-    except StaleDraftError as exc:
-        st.error(str(exc))
-        return
     st.caption("预览和下载使用已保存的草稿版本；未保存的编辑不包含在导出中。")
     st.code(markdown, language="markdown")
     st.download_button(
@@ -259,7 +290,10 @@ def render(engine, mode):
         return
     if "p3_flash" in st.session_state:
         st.success(st.session_state.pop("p3_flash"))
-    sku_id = st.selectbox("选择 SKU", [item.sku_id for item in skus], key=f"p3_sku_{mode}")
+    sku_id = select_sku(skus, mode, f"p3_sku_{mode}")
+    if sku_id is None:
+        return
+    sku_links(next(s for s in skus if s.sku_id == sku_id), current_page="离线草稿")
     operator = st.text_input(
         "本地操作者标识", key=f"p3_operator_{mode}", help="使用不含个人信息的本地标识。"
     )
@@ -278,6 +312,22 @@ def render(engine, mode):
             for item in session.exec(select(DraftAudit)).all()
             if item.record_id in relevant_ids
         ]
+    st.subheader("内容准备清单")
+    preview = preview_draft(facts, assets)
+    st.write(
+        f"人工已核实事实 {sum(item.status == 'verified' for item in facts)} 条；"
+        f"待核实事实 {sum(item.status == 'unverified' for item in facts)} 条；"
+        f"素材索引 {len(assets)} 条。"
+    )
+    if not preview["body"]:
+        st.info("暂无可用的已核实事实；可生成占位草稿，不能补写未经核实的商品陈述。")
+    for item in preview["needs_verification"].splitlines():
+        st.warning(item)
+    with st.expander("可用事实与来源版本"):
+        for item in facts:
+            if item.status == "verified":
+                st.write(f"{item.text} · {item.fact_id} · 修订 {item.revision}")
+                st.write(f"依据：{item.evidence_ref}；核验时间：{local_time(item.checked_at)}")
     tab1, tab2, tab3, tab4 = st.tabs(
         ["事实记录", "素材清单", "草稿与导出", "修订历史"],
         key=f"p3_tabs_{mode}_{sku_id}",

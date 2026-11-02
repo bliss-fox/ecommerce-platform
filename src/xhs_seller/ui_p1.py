@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 import streamlit as st
 from sqlalchemy import func, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from xhs_seller.models import ImportBatch, ImportFailure, RevisionAudit
@@ -21,10 +22,20 @@ from xhs_seller.services.imports import (
     BaselineChangedError,
     InputFile,
     commit,
-    preflight,
 )
-from xhs_seller.ui_csv import warn_formula_fields
-from xhs_seller.ui_preview import preview_page
+from xhs_seller.ui_database import recovery_key
+from xhs_seller.ui_import_flow import (
+    GROUPS,
+    P4_NAMES,
+    clear_result,
+    display_snapshot,
+    ensure_group,
+    file_step,
+    prepare_preview,
+    preview_details,
+    receipt,
+    shanghai,
+)
 
 NAMES = {
     "product": "候选",
@@ -127,12 +138,16 @@ def serialize_field(obj, name):
 
 
 def store_preview(engine, inputs, mode, source):
-    st.session_state.p1_preview = preflight(engine, inputs, real_data=mode == "真实数据")
+    st.session_state.pop("p1_edit_row", None)
+    preview = prepare_preview(engine, inputs, mode, "p1")
+    if preview is None:
+        return None
     st.session_state.p1_mode = mode
     st.session_state.p1_source = source
     st.session_state.p1_inputs = [
         (item.kind, item.name, hashlib.sha256(item.content).hexdigest()) for item in inputs
     ]
+    return preview
 
 
 def edit_form(engine, mode):
@@ -151,7 +166,7 @@ def edit_form(engine, mode):
         st.warning("记录已变化，表单已刷新；请核对最新内容后再预检。")
     if existing:
         st.session_state[revision_key] = revision
-    field_scope = f"{mode}_{kind}_{selected}" + (f"_v{revision}" if existing else "")
+    field_scope = recovery_key(f"{mode}_{kind}_{selected}" + (f"_v{revision}" if existing else ""))
     if (
         st.session_state.get("p1_source") == "手工编辑"
         and st.session_state.get("p1_edit_context") != context
@@ -178,6 +193,8 @@ def edit_form(engine, mode):
     st.caption("归档候选或 SKU 请修改状态；为保留引用和修订历史，不提供物理删除。")
     with st.form(f"edit_form_{field_scope}"):
         row = {}
+        main_fields = st.container()
+        version_fields = st.expander("版本详情")
         for name in fields:
             if existing is not None and name == "revision":
                 value = str(existing.revision + 1)
@@ -192,34 +209,37 @@ def edit_form(engine, mode):
             else:
                 value = ""
             input_widget = st.text_area if name in MULTILINE_FIELDS else st.text_input
-            row[name] = input_widget(
-                LABELS[name],
-                value=None if restoring else value,
-                key=f"field_{field_scope}_{name}",
-                disabled=(
-                    existing is not None
-                    and (
-                        name == id_name
-                        or name
-                        in (
-                            {"product_id"}
-                            if kind == "quote"
-                            else {"product_id", "sku_code"}
-                            if kind == "sku"
-                            else {"product_id", "research_id"}
-                            if kind == "link"
-                            else {"product_id", "check_type"}
-                            if kind == "check"
-                            else set()
+            container = version_fields if name in {"revision", "updated_at"} else main_fields
+            with container:
+                row[name] = input_widget(
+                    LABELS[name],
+                    value=None if restoring else value,
+                    key=f"field_{field_scope}_{name}",
+                    disabled=(
+                        existing is not None
+                        and (
+                            name == id_name
+                            or name
+                            in (
+                                {"product_id"}
+                                if kind == "quote"
+                                else {"product_id", "sku_code"}
+                                if kind == "sku"
+                                else {"product_id", "research_id"}
+                                if kind == "link"
+                                else {"product_id", "check_type"}
+                                if kind == "check"
+                                else set()
+                            )
                         )
-                    )
-                ),
-            )
+                    ),
+                )
         submitted = st.form_submit_button("预检编辑")
     if submitted:
-        store_preview(engine, [csv_input(kind, row)], mode, "手工编辑")
+        preview = store_preview(engine, [csv_input(kind, row)], mode, "手工编辑")
+        if preview is None:
+            return
         st.session_state.p1_edit_context = context
-        preview = st.session_state.p1_preview
         if not preview.errors:
             if existing and (
                 preview.changes[0].old is None or preview.changes[0].old["revision"] != revision
@@ -232,6 +252,8 @@ def edit_form(engine, mode):
 
 
 def import_form(engine, mode):
+    ensure_group(GROUPS[0])
+    file_step("p1", NAMES)
     st.caption(f"数据契约：{CONTRACT}。可在同一批次中上传多个类型，全部预检通过后才可提交。")
     files = []
     for kind, label in NAMES.items():
@@ -242,12 +264,16 @@ def import_form(engine, mode):
         (item.kind, item.name, hashlib.sha256(item.content).hexdigest()) for item in files
     ]
     if st.session_state.get("p1_mode") != mode:
-        st.session_state.pop("p1_preview", None)
+        clear_result("p1")
     if (
         st.session_state.get("p1_source") == "CSV 导入"
         and st.session_state.get("p1_inputs") != fingerprints
     ) or (st.session_state.get("p1_source") == "合成研究示例" and files):
-        st.session_state.pop("p1_preview", None)
+        clear_result("p1")
+    st.subheader("2. 核对来源条件")
+    st.caption(
+        "确认资料使用依据、金额/时间和对象关联；研究许可与核验依据仍按契约预检。真实空间拒绝合成来源。"
+    )
     if st.button("预检所选文件", disabled=not files):
         store_preview(engine, files, mode, "CSV 导入")
     if mode == "合成演示" and st.button(
@@ -277,52 +303,12 @@ def preview_panel(engine, mode, operation):
             )
         )
     ):
+        receipt(engine, mode, "p1")
         return
-    st.subheader("预检结果")
-    st.write(f"来源：{st.session_state.p1_source}；批次：{preview.batch_id}")
-    st.write("文件：" + "、".join(item["label"] for item in preview.files))
-    st.write(
-        f"新增 {preview.counts['insert']}，更新 {preview.counts['update']}，不变 {preview.counts['noop']}，错误 {preview.counts['rejected']}"
-    )
-    for warning in preview_page(
-        preview.warnings, batch_id=preview.batch_id, kind="p1_warning", label="预检警告页"
-    ):
-        st.warning(warning)
-    if preview.errors:
-        st.error("存在错误，整批不能提交。错误报告不包含原始行内容。")
-        errors = [vars(item) for item in preview.errors]
-        st.dataframe(errors, hide_index=True)
-        warn_formula_fields(errors, {"record_id": "记录 ID"}, "错误报告 CSV")
-        out = io.StringIO(newline="")
-        writer = csv.DictWriter(out, fieldnames=list(errors[0]))
-        writer.writeheader()
-        writer.writerows(errors)
-        st.download_button(
-            "下载错误报告", out.getvalue().encode("utf-8-sig"), "errors.csv", "text/csv"
-        )
+    st.write(f"来源：{st.session_state.p1_source}")
+    if not preview_details(preview, NAMES, "p1"):
         return
-    st.caption("请核对以下变更；金额字段以整数分显示，null 表示未知。")
-    changes = preview_page(
-        preview.changes, batch_id=preview.batch_id, kind="p1_change", label="预检变更页"
-    )
-    if len(preview.changes) > len(changes):
-        st.caption("请逐页核对；确认时提交整批预检结果。")
-    for change in changes:
-        missing = [
-            name.removesuffix("_cents")
-            for name, value in change.new.items()
-            if name.endswith("_cents") and value is None
-        ]
-        if missing:
-            st.write(f"{NAMES[change.kind]} {change.record_id} 未知费用：{', '.join(missing)}")
-        if change.old is not None and change.action == "update":
-            for name, value in change.new.items():
-                if name.endswith("_cents") and value != change.old[name]:
-                    st.write(f"{change.record_id} {name}：{change.old[name]} → {value} 分")
-    for change in changes:
-        with st.expander(f"{NAMES[change.kind]} {change.record_id} · {change.action}"):
-            st.json({"原值": display_snapshot(change.old), "新值": display_snapshot(change.new)})
-    with st.form("confirm_import"):
+    with st.form(recovery_key("confirm_import")):
         operator = st.text_input("本地操作者标识", help="使用不含姓名、电话或凭证的本地标识。")
         confirm = st.form_submit_button("确认并原子提交")
     if confirm:
@@ -334,6 +320,10 @@ def preview_panel(engine, mode, operation):
             st.error(str(exc))
         except ValueError as exc:
             st.error(str(exc))
+        except SQLAlchemyError:
+            clear_result("p1")
+            st.session_state.pop("p1_edit_row", None)
+            st.error("写入失败，未确认提交成功；请核对本地数据库并重新预检。")
         else:
             if st.session_state.get("p1_source") == "手工编辑":
                 edit_mode, kind, selected, _revision = st.session_state.p1_edit_context
@@ -343,20 +333,10 @@ def preview_panel(engine, mode, operation):
                     ].new["revision"]
             st.session_state.pop("p1_preview", None)
             st.session_state.pop("p1_edit_row", None)
-            st.success("已提交；业务记录和修订审计已写入同一事务。")
-
-
-def shanghai(value):
-    return datetime.fromisoformat(value).astimezone(ZoneInfo("Asia/Shanghai")).isoformat()
-
-
-def display_snapshot(row):
-    if row is None:
-        return None
-    return {
-        key: shanghai(value) if key in TIME_FIELDS and value is not None else value
-        for key, value in row.items()
-    }
+            st.session_state.p1_receipt = preview.batch_id
+            st.session_state.p1_import_flash = "已提交；业务记录和修订审计已写入同一事务。"
+            st.rerun()
+    receipt(engine, mode, "p1")
 
 
 def history(engine, mode):
@@ -367,6 +347,13 @@ def history(engine, mode):
         failures = session.exec(
             select(ImportFailure).order_by(ImportFailure.created_at.desc())
         ).all()
+        target = st.session_state.pop("p1_history_target", None)
+        if target:
+            if target not in {batch.batch_id for batch in batches}:
+                st.error("定位批次不存在或已变化；未自动选择其他批次。")
+                return
+            st.session_state[f"p1_history_kind_{mode}"] = "成功批次"
+            st.session_state[f"p1_history_batch_{mode}_成功批次"] = target
         if not batches and not failures:
             st.info("暂无批次记录。")
             return
@@ -434,7 +421,7 @@ def history(engine, mode):
         ).all()
         for audit in audits:
             st.write(
-                f"{NAMES.get(audit.entity_type, audit.entity_type)} {audit.record_id}：{audit.old_revision} → {audit.new_revision}"
+                f"{(NAMES | P4_NAMES).get(audit.entity_type, audit.entity_type)} {audit.record_id}：{audit.old_revision} → {audit.new_revision}"
             )
             st.json(
                 {
@@ -448,7 +435,19 @@ def history(engine, mode):
 
 def render(engine, mode):
     st.header("编辑、导入与审计")
-    operation = st.radio("操作", ["手工编辑", "CSV 导入", "修订历史"], horizontal=True)
+    target = st.session_state.pop("p1_target", None)
+    if target:
+        for key in list(st.session_state):
+            if key.startswith(("p1_", "field_", "edit_record_")):
+                del st.session_state[key]
+        kind, record_id = target
+        st.session_state.edit_kind = kind
+        st.session_state[f"edit_record_{mode}_{kind}"] = record_id
+        st.session_state.p1_operation = "手工编辑"
+        st.info(f"已定位：{NAMES[kind]} {record_id}；请核对当前内容后预检。")
+    operation = st.radio(
+        "操作", ["手工编辑", "CSV 导入", "修订历史"], horizontal=True, key="p1_operation"
+    )
     if operation == "手工编辑":
         edit_form(engine, mode)
     elif operation == "CSV 导入":

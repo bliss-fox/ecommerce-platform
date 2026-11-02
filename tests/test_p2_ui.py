@@ -1,6 +1,8 @@
+
 from pathlib import Path
 
 import pytest
+from navigation_helpers import navigate
 from sqlmodel import Session, select
 from streamlit.testing.v1 import AppTest
 
@@ -16,7 +18,7 @@ def test_demo_import_confirmation_and_scoring_ui(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.radio[0].set_value("CSV 导入").run()
     app.button[1].click().run()
     assert not app.exception
@@ -29,7 +31,7 @@ def test_demo_import_confirmation_and_scoring_ui(monkeypatch, tmp_path):
         assert len(session.exec(select(ResearchNote)).all()) == 7
         assert len(session.exec(select(ProductResearchLink)).all()) == 7
         assert len(session.exec(select(CandidateCheck)).all()) == 15
-    app.sidebar.radio[0].set_value("研究与评分").run()
+    navigate(app, "研究与评分")
     assert not app.exception
     app.text_input(key="p2_asof_合成演示").set_value("2026-10-27T12:00:00+08:00").run()
     assert not app.exception
@@ -61,7 +63,7 @@ def test_edit_research_check_uses_same_revision_audit(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.selectbox(key="edit_kind").set_value("check").run()
     app.selectbox(key="edit_record_合成演示_check").set_value("C-02-media_rights").run()
     app.text_input(key="field_合成演示_check_C-02-media_rights_v1_result").set_value("pass")
@@ -134,7 +136,7 @@ def test_scoring_page_reads_one_snapshot_during_concurrent_commit(monkeypatch, t
                 )
 
     try:
-        app.sidebar.radio[0].set_value("研究与评分").run()
+        navigate(app, "研究与评分")
     finally:
         event.remove(engine, "before_cursor_execute", concurrent_commit)
     assert writes and not app.exception
@@ -186,7 +188,7 @@ def test_archived_candidate_is_visible_but_not_ranked(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("研究与评分").run()
+    navigate(app, "研究与评分")
     assert not app.exception
     assert any("已归档或拒绝" in item.value for item in app.subheader)
     assert any("候选已归档" in item.value for item in app.warning)
@@ -221,7 +223,7 @@ def test_unscorable_selected_sku_does_not_hide_other_candidates(monkeypatch, tmp
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("研究与评分").run()
+    navigate(app, "研究与评分")
     app.text_input(key="p2_asof_合成演示").set_value("2026-10-27T12:00:00+08:00").run()
     app.selectbox(key="p2_sku_合成演示").set_value("S-02").run()
     assert not app.exception
@@ -326,7 +328,7 @@ def test_scoring_page_loads_relevant_history_and_preserves_failure_gate(
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("研究与评分").run()
+    navigate(app, "研究与评分")
     app.text_input(key="p2_asof_合成演示").set_value("2026-10-27T12:00:00+08:00").run()
     assert not app.exception
     assert any("阻断" in item.value for item in app.subheader)

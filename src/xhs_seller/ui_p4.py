@@ -12,15 +12,27 @@ from zoneinfo import ZoneInfo
 
 import streamlit as st
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from xhs_seller.models import Expense, ExpenseAllocation, OrderLine
 from xhs_seller.services.drafts import local_time
-from xhs_seller.services.imports import BaselineChangedError, InputFile, commit, preflight
+from xhs_seller.services.imports import BaselineChangedError, InputFile, commit
 from xhs_seller.services.order_cost import allocate_by_quantity
 from xhs_seller.services.p4_report import build_report
 from xhs_seller.ui_csv import warn_formula_fields
-from xhs_seller.ui_preview import preview_page
+from xhs_seller.ui_database import recovery_key
+from xhs_seller.ui_import_flow import (
+    GROUPS,
+    clear_result,
+    display_snapshot,
+    ensure_group,
+    file_step,
+    open_order_import,
+    prepare_preview,
+    preview_details,
+    receipt,
+)
 from xhs_seller.ui_time import report_time_input
 
 FILES = {
@@ -49,6 +61,8 @@ def csv_bytes(rows, headers):
 
 
 def render_import(engine, mode):
+    ensure_group(GROUPS[1])
+    file_step("p4", {kind: label for kind, (label, _) in FILES.items()})
     st.caption("选择一组文件预检；全部通过后，确认才会写入。订单须使用去身份化业务键。")
     inputs = []
     for kind, (label, _) in FILES.items():
@@ -71,6 +85,7 @@ def render_import(engine, mode):
             st.session_state[source_key] = source
     if reset_confirmation:
         st.info("相关文件已变更，请重新核对并确认对应的来源条件。")
+    st.subheader("2. 核对来源条件")
     has_orders = any(item.kind == "order" for item in inputs)
     has_settlements = any(item.kind == "settlement" for item in inputs)
     has_costs = any(item.kind in {"expense", "adjustment"} for item in inputs)
@@ -103,80 +118,67 @@ def render_import(engine, mode):
         st.session_state.get("p4_source") == "upload"
         and st.session_state.get("p4_fingerprint") != fingerprint
     ):
-        st.session_state.pop("p4_preview", None)
+        clear_result("p4")
     if st.button("预检 P4 所选文件", disabled=not inputs):
-        st.session_state.p4_preview = preflight(
+        preview = prepare_preview(
             engine,
             inputs,
-            real_data=mode == "真实数据",
+            mode,
+            "p4",
             orders_are_mapped=mapped,
             settlements_cover_full_principal=full_principal,
             costs_exclude_refunds=costs_exclude_refunds,
         )
-        st.session_state.p4_mode = mode
-        st.session_state.p4_source = "upload"
-        st.session_state.p4_fingerprint = fingerprint
+        if preview is not None:
+            st.session_state.p4_mode = mode
+            st.session_state.p4_source = "upload"
+            st.session_state.p4_fingerprint = fingerprint
     if mode == "合成演示" and st.button("预检 P4 合成示例", disabled=bool(inputs)):
         directory = Path(__file__).resolve().parents[2] / "examples" / "p4"
         samples = [
             InputFile(kind, name, (directory / name).read_bytes())
             for kind, (_, name) in FILES.items()
         ]
-        st.session_state.p4_preview = preflight(
+        preview = prepare_preview(
             engine,
             samples,
-            real_data=False,
+            mode,
+            "p4",
             orders_are_mapped=True,
             settlements_cover_full_principal=True,
             costs_exclude_refunds=True,
         )
-        st.session_state.p4_mode = mode
-        st.session_state.p4_source = "sample"
+        if preview is not None:
+            st.session_state.p4_mode = mode
+            st.session_state.p4_source = "sample"
     if st.session_state.get("p4_source") == "sample" and inputs:
-        st.session_state.pop("p4_preview", None)
+        clear_result("p4")
     preview = st.session_state.get("p4_preview")
     if preview is None:
+        receipt(engine, mode, "p4")
         return
-    st.subheader("预检结果")
-    st.write(
-        f"新增 {preview.counts['insert']}，更新 {preview.counts['update']}，不变 {preview.counts['noop']}，错误 {preview.counts['rejected']}"
-    )
-    for warning in preview_page(
-        preview.warnings, batch_id=preview.batch_id, kind="p4_warning", label="预检警告页"
-    ):
-        st.warning(warning)
-    if preview.errors:
-        st.error("存在错误，整批不能提交。")
-        errors = [vars(error) for error in preview.errors]
-        st.dataframe(errors, hide_index=True)
-        warn_formula_fields(errors, {"record_id": "记录 ID"}, "P4 错误报告")
-        st.download_button(
-            "下载 P4 错误报告", csv_bytes(errors, list(errors[0])), "p4-errors.csv", "text/csv"
-        )
+    if not preview_details(preview, {kind: label for kind, (label, _) in FILES.items()}, "p4"):
         return
-    st.caption("金额以分显示；请核对变更前后内容及缺失费用。")
-    changes = preview_page(
-        preview.changes, batch_id=preview.batch_id, kind="p4_change", label="预检变更页"
-    )
-    if len(preview.changes) > len(changes):
-        st.caption("请逐页核对；确认时提交整批预检结果。")
-    for change in changes:
-        with st.expander(f"{FILES[change.kind][0]} {change.record_id} · {change.action}"):
-            st.json({"原值": change.old, "新值": change.new})
-    with st.form("p4_confirm"):
+    with st.form(recovery_key("p4_confirm")):
         operator = st.text_input("P4 本地操作者标识")
         confirm = st.form_submit_button("确认并原子提交 P4 数据")
     if confirm:
         try:
             commit(engine, preview, operator=operator)
         except BaselineChangedError as exc:
-            st.session_state.pop("p4_preview", None)
+            clear_result("p4")
             st.error(str(exc))
         except ValueError as exc:
             st.error(str(exc))
+        except SQLAlchemyError:
+            clear_result("p4")
+            st.error("写入失败，未确认提交成功；请核对本地数据库并重新预检。")
         else:
-            st.session_state.pop("p4_preview", None)
-            st.success("已提交，业务记录与修订审计保存在同一事务。")
+            clear_result("p4")
+            st.session_state.p4_receipt = preview.batch_id
+            st.session_state.p4_import_flash = "已提交，业务记录与修订审计保存在同一事务。"
+            st.rerun()
+    receipt(engine, mode, "p4")
 
 
 def render_allocation_proposal(engine):
@@ -367,7 +369,46 @@ def sku_report_rows(report):
     return result
 
 
-def render_report(engine):
+def remember_order():
+    st.session_state.nav_order = st.session_state.r3_order_source
+
+
+def clear_order():
+    st.session_state.pop("nav_order", None)
+    st.session_state.pop("r3_order_source", None)
+
+
+def render_order_sources(row):
+    st.subheader("当前订单的成本来源")
+    labels = {
+        "goods": "采购",
+        "outbound_shipping": "发货",
+        "return_shipping": "退回运费",
+        "packaging": "包装",
+        "platform_fee": "平台",
+        "marketing": "获客",
+        "other": "其他",
+    }
+    basis_labels = {"actual": "按当前实际成本", "estimated": "含估计成本", "unknown": "未知"}
+    for category, (amount, basis) in row["categories"].items():
+        st.write(f"{labels[category]}：{money(amount)} 元 · {basis_labels[basis]}")
+    st.caption(
+        "下方来源与金额来自同一次报告读取；金额字段以整数分显示，null 为未知。"
+        "费用池原始金额属于整池，本订单只计对应分摊；调整不另记销售收入。"
+    )
+    for kind, (label, _) in FILES.items():
+        records = row["source_records"][kind]
+        if not records:
+            if kind == "settlement":
+                st.info("未记录结算；到账未知，不按零处理。")
+            continue
+        for record_id, snapshot in sorted(records.items()):
+            with st.expander(f"{label}来源 {record_id} · 修订 {snapshot['revision']}"):
+                st.json(display_snapshot(snapshot))
+    st.button("导入有依据的修订", on_click=open_order_import)
+
+
+def render_report(engine, focus_id=None):
     st.caption("报告使用当前修订，不回放历史快照；贡献利润不是净利润或现金流。")
     as_of = report_time_input("报告 as_of（含时区）", "p4_report_as_of")
     try:
@@ -378,6 +419,41 @@ def render_report(engine):
     display_as_of = local_time(report["as_of"])
     st.caption(f"报告时点（上海）：{display_as_of}")
     rows = report_rows(report)
+    ids = [row["order_line_id"] for row in rows]
+    if focus_id is not None and focus_id not in ids:
+        st.error("定位订单不存在或已变化；未自动选择其他订单。")
+        st.button("清除订单定位", on_click=clear_order)
+        return
+    if rows:
+        if focus_id is not None:
+            st.session_state.r3_order_source = focus_id
+        focus_id = st.selectbox(
+            "查看订单来源",
+            [None] + ids,
+            key="r3_order_source",
+            format_func=lambda value: value or "选择订单查看来源",
+            on_change=remember_order,
+        )
+        st.session_state.nav_order = focus_id
+    if focus_id is not None:
+        focused = next((r for r in rows if r["order_line_id"] == focus_id), None)
+        if focused is None:
+            st.error("定位订单不存在或已变化；未自动选择其他订单。")
+            return
+        st.subheader(f"定位订单：{focus_id}")
+        st.write(f"SKU：{focused['sku_id']}；结算状态：{focused['reconciliation_status']}")
+        st.write(
+            f"结算差异：{focused['difference_cny']} 元；待反映退款：{focused['refund_not_covered_cny']} 元"
+        )
+        st.write(
+            f"净销售：{focused['net_sales_cny']} 元；贡献利润：{focused['contribution_cny']} 元（不是净利润）"
+        )
+        with st.expander("定位订单的来源与完整明细"):
+            st.json(focused)
+        render_order_sources(
+            next(row for row in report["rows"] if row["order_line_id"] == focus_id)
+        )
+        st.button("清除订单定位", on_click=clear_order)
     if not rows:
         st.info("暂无订单数据。")
     else:
@@ -471,12 +547,17 @@ def render_report(engine):
     )
 
 
-def render(engine, mode):
+def render(engine, mode, focus_id=None):
     st.header("订单成本与对账")
-    page = st.radio("P4 操作", ["报表与核对", "CSV 导入", "分摊建议"], horizontal=True)
+    if focus_id is not None:
+        st.session_state.p4_operation = "报表与核对"
+        st.session_state.nav_order = focus_id
+    page = st.radio(
+        "P4 操作", ["报表与核对", "CSV 导入", "分摊建议"], horizontal=True, key="p4_operation"
+    )
     if page == "CSV 导入":
         render_import(engine, mode)
     elif page == "分摊建议":
         render_allocation_proposal(engine)
     else:
-        render_report(engine)
+        render_report(engine, st.session_state.get("nav_order"))

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from navigation_helpers import navigate
 from sqlmodel import Session, select
 from streamlit.testing.v1 import AppTest
 
@@ -56,7 +57,7 @@ def test_report_distinguishes_no_assigned_expense_from_recorded_zero(monkeypatch
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("订单成本与对账").run()
+    navigate(app, "订单成本与对账")
     assert not app.exception
     assert any("已归属费用（实际）：未记录" in item.value for item in app.markdown)
     assert any("已归属费用（估计）：未记录" in item.value for item in app.markdown)
@@ -117,7 +118,7 @@ def test_p4_sample_requires_confirmation_and_shows_report(monkeypatch, tmp_path)
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("订单成本与对账").run()
+    navigate(app, "订单成本与对账")
     assert not app.exception
     app.radio[0].set_value("CSV 导入").run()
     next(button for button in app.button if button.label == "预检 P4 合成示例").click().run()
@@ -191,7 +192,7 @@ def test_p4_sample_requires_confirmation_and_shows_report(monkeypatch, tmp_path)
     sku_summary = app.dataframe[1].value.set_index("sku_id")
     assert sku_summary.loc["S-03", "cost_status"] == "estimated"
     assert sku_summary.loc["S-03", "contribution_cny"] == "41.50"
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.radio[0].set_value("修订历史").run()
     assert not app.exception
 
@@ -247,7 +248,7 @@ def test_offsetting_settlement_differences_remain_visible(monkeypatch, tmp_path)
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("订单成本与对账").run()
+    navigate(app, "订单成本与对账")
     next(item for item in app.text_input if item.label.startswith("报告 as_of")).set_value(
         "2026-10-27T12:00:00+08:00"
     ).run()
@@ -270,7 +271,7 @@ def test_allocation_proposal_is_visible_and_does_not_write(monkeypatch, tmp_path
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("订单成本与对账").run()
+    navigate(app, "订单成本与对账")
     app.radio[0].set_value("CSV 导入").run()
     next(button for button in app.button if button.label == "预检 P4 合成示例").click().run()
     next(item for item in app.text_input if item.label == "P4 本地操作者标识").set_value("local")
@@ -386,7 +387,7 @@ def test_allocation_proposal_rejects_future_expense_timestamp(monkeypatch, tmp_p
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("订单成本与对账").run()
+    navigate(app, "订单成本与对账")
     app.radio[0].set_value("分摊建议").run()
     app.multiselect[0].set_value(["OL-NEW"]).run()
     assert not app.exception
@@ -403,8 +404,9 @@ def test_allocation_proposal_rejects_future_expense_timestamp(monkeypatch, tmp_p
         ("结算快照 CSV", "p4_full_principal_合成演示"),
     ],
 )
+@pytest.mark.parametrize("entry", ["订单成本与对账", "数据导入"])
 def test_p4_confirmation_resets_when_its_file_changes(
-    monkeypatch, tmp_path, upload_label, confirmation_key
+    monkeypatch, tmp_path, upload_label, confirmation_key, entry
 ):
     import io
 
@@ -426,8 +428,11 @@ def test_p4_confirmation_resets_when_its_file_changes(
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("订单成本与对账").run()
-    app.radio[0].set_value("CSV 导入").run()
+    navigate(app, entry)
+    if entry == "数据导入":
+        app.radio(key="import_group").set_value("订单、费用与结算").run()
+    else:
+        app.radio[0].set_value("CSV 导入").run()
     next(item for item in app.text_input if item.label == upload_label).set_value("file A").run()
     app.checkbox(key=confirmation_key).check().run()
     assert app.checkbox(key=confirmation_key).value
@@ -436,7 +441,8 @@ def test_p4_confirmation_resets_when_its_file_changes(
     assert not app.checkbox(key=confirmation_key).value
 
 
-def test_p4_replaced_order_requires_new_confirmation_before_commit(monkeypatch, tmp_path):
+@pytest.mark.parametrize("entry", ["订单成本与对账", "数据导入"])
+def test_p4_replaced_order_requires_new_confirmation_before_commit(monkeypatch, tmp_path, entry):
     import io
 
     import streamlit as st
@@ -470,8 +476,11 @@ def test_p4_replaced_order_requires_new_confirmation_before_commit(monkeypatch, 
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("订单成本与对账").run()
-    app.radio[0].set_value("CSV 导入").run()
+    navigate(app, entry)
+    if entry == "数据导入":
+        app.radio(key="import_group").set_value("订单、费用与结算").run()
+    else:
+        app.radio[0].set_value("CSV 导入").run()
     next(item for item in app.text_input if item.label == "订单行 CSV").set_value("A").run()
     next(item for item in app.text_input if item.label == "费用 CSV").set_value("selected").run()
     app.checkbox(key="p4_mapping_合成演示").check().run()

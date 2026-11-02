@@ -1,5 +1,7 @@
+
 from pathlib import Path
 
+from navigation_helpers import navigate
 from sqlmodel import Session, select
 from streamlit.testing.v1 import AppTest
 
@@ -19,7 +21,7 @@ def test_offline_fact_to_reviewed_draft_and_export(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("离线草稿").run()
+    navigate(app, "离线草稿")
     assert not app.exception
     app.text_input(key="p3_operator_合成演示").set_value("test")
     element_by_label(app.text_input, "事实文本（单行）").set_value("颜色：蓝色")
@@ -69,7 +71,7 @@ def test_stale_fact_form_does_not_overwrite_concurrent_edit(monkeypatch, tmp_pat
         operator="test",
         real_data=False,
     )
-    app.sidebar.radio[0].set_value("离线草稿").run()
+    navigate(app, "离线草稿")
     app.text_input(key="p3_operator_合成演示").set_value("test").run()
     app.selectbox(key="p3_fact_合成演示_S-01").set_value(original.fact_id).run()
     element_by_label(app.text_input, "事实文本（单行）").set_value("旧表单修改")
@@ -121,7 +123,7 @@ def test_stale_asset_form_does_not_overwrite_concurrent_edit(monkeypatch, tmp_pa
         operator="test",
         real_data=False,
     )
-    app.sidebar.radio[0].set_value("离线草稿").run()
+    navigate(app, "离线草稿")
     app.text_input(key="p3_operator_合成演示").set_value("test").run()
     app.selectbox(key="p3_asset_合成演示_S-01").set_value(original.asset_id).run()
     element_by_label(app.text_input, "本地路径索引").set_value("images/stale.png")
@@ -155,7 +157,7 @@ def test_stale_draft_form_does_not_overwrite_concurrent_edit(monkeypatch, tmp_pa
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
     draft = create_draft(engine, sku_id="S-01", operator="test")
-    app.sidebar.radio[0].set_value("离线草稿").run()
+    navigate(app, "离线草稿")
     app.text_input(key="p3_operator_合成演示").set_value("test").run()
     element_by_label(app.text_area, "补充待核实事项（每行一项）").set_value("旧表单内容")
     save_draft(
@@ -209,7 +211,7 @@ def test_draft_history_displays_localized_structured_snapshots(monkeypatch, tmp_
         real_data=False,
     )
     draft = create_draft(engine, sku_id="S-01", operator="test")
-    app.sidebar.radio[0].set_value("离线草稿").run()
+    navigate(app, "离线草稿")
     assert not app.exception
     entries = [json.loads(item.value)["新值"] for item in app.json]
     fact_entry = next(item for item in entries if item.get("fact_id") == fact.fact_id)
@@ -234,7 +236,7 @@ def test_draft_tab_selection_survives_generation(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("离线草稿").run()
+    navigate(app, "离线草稿")
     key = "p3_tabs_合成演示_S-01"
     assert app.session_state[key] == "事实记录"
     app.session_state[key] = "草稿与导出"

@@ -1,8 +1,10 @@
+
 import csv
 import io
 from pathlib import Path
 
 import streamlit as st
+from navigation_helpers import navigate
 from sqlmodel import Session, select
 from streamlit.testing.v1 import AppTest
 
@@ -52,7 +54,7 @@ def test_p1_preview_pages_still_commit_the_complete_batch(monkeypatch, tmp_path)
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.radio[0].set_value("CSV 导入").run()
     next(button for button in app.button if button.label == "预检所选文件").click().run()
     assert not app.exception and not app.error
@@ -107,7 +109,7 @@ def test_p4_preview_pages_changes_and_warnings_independently(monkeypatch, tmp_pa
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=30
     ).run()
-    app.sidebar.radio[0].set_value("订单成本与对账").run()
+    navigate(app, "订单成本与对账")
     app.radio[0].set_value("CSV 导入").run()
     app.checkbox(key="p4_mapping_合成演示").check().run()
     next(button for button in app.button if button.label == "预检 P4 所选文件").click().run()

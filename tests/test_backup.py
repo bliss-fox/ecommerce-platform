@@ -3,6 +3,7 @@ from contextlib import closing
 from pathlib import Path
 
 import pytest
+from navigation_helpers import navigate
 from streamlit.testing.v1 import AppTest
 
 from xhs_seller.services.backup import BackupInspection, backup_database, inspect_backup
@@ -100,9 +101,17 @@ def test_ui_isolates_modes_and_clears_failed_snapshot(monkeypatch, tmp_path):
     real = db.make_engine(tmp_path / "real.db")
     monkeypatch.setattr(db, "make_engine", lambda path=None: demo if path is None else real)
     downloads = []
-    monkeypatch.setattr(st, "download_button", lambda *args, **kwargs: downloads.append(kwargs))
+    # Navigation now passes through the import center, which offers an empty
+    # CSV template. Only database backup downloads belong to this assertion.
+    monkeypatch.setattr(
+        st,
+        "download_button",
+        lambda label, *args, **kwargs: (
+            downloads.append(kwargs) if label == "下载 SQLite 备份" else None
+        ),
+    )
     app = AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py").run()
-    app.sidebar.radio[0].set_value("数据备份").run()
+    navigate(app, "数据备份")
     assert not app.exception and not downloads
     app.button(key="backup_create_合成演示").click().run()
     assert not app.exception and len(downloads) == 1
@@ -144,7 +153,7 @@ def test_incompatible_schema_can_still_be_backed_up(monkeypatch, tmp_path):
     monkeypatch.setattr(db, "make_engine", lambda: engine)
     app = AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py").run()
     assert app.error
-    app.sidebar.radio[0].set_value("数据备份").run()
+    navigate(app, "数据备份")
     app.button(key="backup_create_合成演示").click().run()
     assert not app.exception and not app.error
     assert app.get("download_button")
@@ -163,7 +172,7 @@ def test_ui_warns_about_foreign_key_failure_but_offers_download(monkeypatch, tmp
     engine = db.make_engine(path)
     monkeypatch.setattr(db, "make_engine", lambda: engine)
     app = AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py").run()
-    app.sidebar.radio[0].set_value("数据备份").run()
+    navigate(app, "数据备份")
     app.button(key="backup_create_合成演示").click().run()
     assert not app.exception and not app.error
     assert any("外键检查：发现问题" in item.value for item in app.warning)

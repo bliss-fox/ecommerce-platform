@@ -1,5 +1,7 @@
+
 from pathlib import Path
 
+from navigation_helpers import navigate
 from sqlmodel import Session, select
 from streamlit.testing.v1 import AppTest
 
@@ -15,7 +17,7 @@ def test_manual_edit_requires_confirmation_and_audits(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     assert not app.exception
     app.selectbox(key="edit_record_合成演示_product").set_value("PC-01").run()
     assert not app.exception
@@ -71,7 +73,7 @@ def test_manual_edit_preserves_and_edits_multiline_imported_text(monkeypatch, tm
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.selectbox(key="edit_record_合成演示_product").set_value("PC-01").run()
     note_key = "field_合成演示_product_PC-01_v2_risk_notes"
     name_key = "field_合成演示_product_PC-01_v2_product_name"
@@ -101,13 +103,18 @@ def test_a08_quote_comparison_visible(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("SKU 经济性").run()
+    navigate(app, "SKU 经济性")
     assert not app.exception
-    assert any("Q-02B" in item.value for item in app.markdown)
-    assert any("Q-03B" in item.value for item in app.markdown)
-    assert any("场景不匹配" in item.value for item in app.warning)
+    app.selectbox(key="r2_compare_S-01_v1").set_value("Q-01B").run()
     assert any("¥8.00" in item.value for item in app.markdown)
-    assert any("贡献利润不可完整计算" in item.value for item in app.markdown)
+    app.selectbox(key="nav_product_sku_合成演示").set_value("S-02").run()
+    app.selectbox(key="r2_compare_S-02_v1").set_value("Q-02B").run()
+    assert any("Q-02B" in item.value for item in app.markdown)
+    assert any("场景不匹配" in item.value for item in app.warning)
+    app.selectbox(key="nav_product_sku_合成演示").set_value("S-03").run()
+    app.selectbox(key="r2_compare_S-03_v1").set_value("Q-03B").run()
+    assert any("Q-03B" in item.value for item in app.markdown)
+    assert any("贡献利润：不可完整计算" in item.value for item in app.markdown)
 
 
 def test_quote_selection_is_saved_with_revision(monkeypatch, tmp_path):
@@ -119,7 +126,7 @@ def test_quote_selection_is_saved_with_revision(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.selectbox(key="edit_kind").set_value("sku").run()
     app.selectbox(key="edit_record_合成演示_sku").set_value("S-01").run()
     app.text_input(key="field_合成演示_sku_S-01_v1_quote_id").set_value("Q-01B")
@@ -133,7 +140,7 @@ def test_quote_selection_is_saved_with_revision(monkeypatch, tmp_path):
         assert sku.revision == 2 and sku.quote_id == "Q-01B"
         audit = session.exec(select(RevisionAudit)).one()
         assert "Q-01A" in audit.old_json and "Q-01B" in audit.new_json
-    app.sidebar.radio[0].set_value("SKU 经济性").run()
+    navigate(app, "SKU 经济性")
     assert not app.exception
     assert any("¥8.00" in item.value for item in app.markdown)
 
@@ -177,7 +184,7 @@ def test_csv_preflight_and_confirmation_in_ui(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.radio[0].set_value("CSV 导入").run()
     app.button[0].click().run()
     assert not app.exception
@@ -214,7 +221,7 @@ def test_error_report_warns_for_formula_like_record_id(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.radio[0].set_value("CSV 导入").run()
     next(button for button in app.button if button.label == "预检所选文件").click().run()
     assert not app.exception
@@ -258,7 +265,7 @@ def test_history_paginates_revisions_and_keeps_failed_batches_accessible(monkeyp
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.radio[0].set_value("修订历史").run()
     assert not app.exception
     assert any("P-HIST-000" in item.value for item in app.markdown)
@@ -291,7 +298,7 @@ def test_history_keeps_noop_and_older_successful_batches_accessible(monkeypatch,
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.radio[0].set_value("修订历史").run()
     assert any("没有业务修订" in item.value for item in app.info)
     app.selectbox(key="p1_history_batch_合成演示_成功批次").set_value(changed.batch_id).run()
@@ -307,7 +314,7 @@ def test_manual_preview_is_bound_to_selected_record(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.selectbox(key="edit_record_合成演示_product").set_value("PC-01").run()
     app.text_area(key="field_合成演示_product_PC-01_v1_risk_notes").set_value("仅适用于 PC-01")
     app.button(key="FormSubmitter:edit_form_合成演示_product_PC-01_v1-预检编辑").click().run()
@@ -331,7 +338,7 @@ def test_successful_manual_preview_locks_fields_until_reopened(monkeypatch, tmp_
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.selectbox(key="edit_record_合成演示_product").set_value("PC-01").run()
     app.text_area(key="field_合成演示_product_PC-01_v1_risk_notes").set_value("预检内容")
     app.button(key="FormSubmitter:edit_form_合成演示_product_PC-01_v1-预检编辑").click().run()
@@ -363,7 +370,7 @@ def test_reopening_new_record_preserves_entered_fields(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     prefix = "field_合成演示_product_新增_"
     app.text_input(key=prefix + "product_id").set_value("PC-NEW")
     app.text_area(key=prefix + "product_name").set_value("新候选")
@@ -412,7 +419,7 @@ def test_csv_upload_and_preview_do_not_cross_data_spaces(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.radio[0].set_value("CSV 导入").run()
     next(x for x in app.text_input if x.label == "候选 CSV").set_value("已选择").run()
     next(b for b in app.button if b.label == "预检所选文件").click().run()
@@ -440,7 +447,7 @@ def test_sample_preview_is_cleared_when_switching_spaces(monkeypatch, tmp_path):
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.radio[0].set_value("CSV 导入").run()
     next(b for b in app.button if b.label == "预检合成研究示例").click().run()
     assert any(b.label == "确认并原子提交" for b in app.button)
@@ -458,7 +465,7 @@ def test_stale_manual_form_does_not_preview_over_concurrent_revision(monkeypatch
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.selectbox(key="edit_record_合成演示_product").set_value("PC-01").run()
     app.text_area(key="field_合成演示_product_PC-01_v1_risk_notes").set_value("旧表单输入")
     with Session(engine) as session:
@@ -500,7 +507,7 @@ def test_manual_preflight_rejects_change_between_form_read_and_snapshot(monkeypa
     app = AppTest.from_file(
         Path(__file__).resolve().parents[1] / "app.py", default_timeout=20
     ).run()
-    app.sidebar.radio[0].set_value("编辑与导入").run()
+    navigate(app, "编辑与导入")
     app.selectbox(key="edit_record_合成演示_product").set_value("PC-01").run()
     app.text_input(key="field_合成演示_product_PC-01_v1_revision").set_value("3")
     app.text_area(key="field_合成演示_product_PC-01_v1_risk_notes").set_value("旧内容")

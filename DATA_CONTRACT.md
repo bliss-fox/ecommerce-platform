@@ -239,3 +239,31 @@ refund_not_yet_covered = current_refunded_amount - covered_refunded_amount
 - ActionProposal：proposal_id、action_type=`list | reprice | purchase | refund | advertise | other`、target_type/target_id、before/after 快照、reason、evidence_refs、estimated_cost（可空 money）、status=`proposed | approved | rejected | cancelled | expired`、created_at、decided_at/decided_by（决定后必填）。只能 proposed 转其他终态；修改终态意图需新提案。批准无执行权限、无平台写入接口。
 
 P5 本地实现限定目标为已有 product、sku 或 order；前后快照为人工录入文本，证据索引至少一项。预计成本空白为未知，零须明确输入。到期由人工标记，没有自动到期时间。每次创建及终态决定与前后修订审计原子写入；终态不可改，批准仅允许导出人工待办。复盘使用 P4 当前修订，不保存历史快照。
+
+当前提案没有编辑流程：创建为 revision 1，唯一一次终态决定为 revision 2。记录决定前须核对唯一创建审计与待审记录一致；导出已批准待办前须核对创建快照、决定前后快照和当前记录连续一致，并核对操作者、时间和非空决定依据。审计缺失、重复、损坏或不一致时拒绝操作，不自动修复。该检查验证本地记录之间的一致性，不证明其真实性或防止全部相关记录被一致篡改。
+
+## 9 M1 会话内离线协作 `sku-review-v1`
+
+本节不改变 CSV 版本、业务实体或评分规则，不增加数据库表。唯一模板为 `sku_review`，一次选择 1–3 个不同的现存 SKU；固定使用已保存报价评分，并用同一 SKU 假设比较同候选全部报价。目标说明最多 500 字，经现有隐私规则检查，仅作备注，不执行其中指令。
+
+### 任务快照与基线
+
+不可变 Snapshot 包含 `space`（demo/real 加数据库绝对路径的 SHA256）、`sku_ids`（排序元组）、`as_of`（UTC ISO 时间）、`read_at`（读取时刻 UTC）、`payload`（规范 JSON 字符串）、`baseline`（SHA256）。payload 在一次显式只读事务中取以下完整当前记录，结束事务后才派发角色：所选 SKU、所属候选、这些候选的全部报价/核验/研究关联（含停用）、关联研究、所选 SKU 的全部事实/素材，以及上述报价/核验的 RevisionAudit。审计无论发生时间均纳入基线，评分仍按既有规则处理历史失败。P4 订单费用与已保存草稿不属于 SKU 假设任务。
+
+payload 按实体类型组织数组，各数组按主键排序；字段名排序、UTF-8、无多余空白、保留 null/bool/整数分，时间统一 UTC，审计 old/new JSON 解析后递归规范化再编码。基线 = SHA256(规范 JSON `{space, sku_ids, payload}`)。重新查询同一集合发现新增、删除、修订或内容改变均失效；不只比较原有 ID 的 revision。as_of/read_at 不参与基线。不支持历史回放；任一当前来源修订或事实核验晚于 as_of 时拒绝开始。
+
+### 产物与引用
+
+RoleResult 为不可变的 `role`、`payload`（规范 JSON）、`refs`（排序、去重的引用元组）。引用为 `实体:主键:revision`，审计用 `audit:审计ID`；必须属于本次角色获准集合。选品仅通过 score 工具取得逐 SKU 评分，成本仅通过 economics 取得逐 SKU/报价的既有函数结果（标为假设），内容仅通过 preview 取得事实原文、素材索引及未保存模板（不读取文件）。工具返回副本；不暴露连接或任意 SQL/文件/终端/网络工具。
+
+M1 无自由生成结论：产物必须与获准工具的完整结构化输出及引用精确一致，额外字段、删掉阻断、自造金额、跨目标引用或伪造核实均拒绝。Decimal 输出为十进制字符串，未知为 JSON null；不转浮点。内容事实、经济性假设和后续人工建议分区。review 复核通过校验的专业产物，保留缺失角色、评分阻断和反驳；summary 主角色汇总已复核结果，不重算金额。复核失败时无 summary，仅保留未经复核产物。
+
+### 调度状态与事件
+
+Run 包含随机 `run_id`、流程版本、Snapshot、备注、运行 `status`、逐角色状态、已验证产物、脱敏错误代码及事件。状态为 `running → completed | partial | cancelled | timed_out`；终态不可复活。业务状态 blocked/incomplete 与运行成功分开。专业角色 selection/cost/content 各一次并行，之后 review 一次、summary 一次（主角色分派记事件，不另调用模型）；不自动重试。任一专业失败可复核部分结果，最终为 partial；复核/汇总失败为 partial。
+
+事件含递增 `sequence`、`role`、`state`、UTC `at`、固定摘要 `detail`；仅记录真实分派、调用和完成/失败/超时/取消，不记录隐藏推理或异常原文。默认单步 30 秒、总任务 120 秒，必须为有限正数；使用单调时钟。超时含输出校验，截止后结果丢弃；总超时或取消停止后续派发。后台不调用 Streamlit，不持有数据库连接。
+
+每会话最多 3 个活跃专业工作线程；线程为可结束的离线计算，取消/超时不能强杀的线程保留资源名额、迟到结果丢弃。若名额尚未释放，拒绝再次运行并提示等待，防止反复重跑堆积线程；不会无限排队。控制线程在终态释放。重复开始返回同一活跃任务，主动重跑才生成新 ID；空间切换取消并清除旧任务/下载，上下文不能跨空间使用。会话断开不保证恢复，任务至多运行到总截止时间。
+
+展示、生成报告和跳转前重新核对 space 与 baseline；变化或读取失败时保留旧结果并明确标记不可作为当前建议，停止正常导出和跳转。报告只含范围/时点/版本/引用/角色产物/事件，不含目标备注或提示词。下载文件为生成时已核对的快照，生成后并发修改不可能撤回已发送文件，须重新读取后再使用。跳转只携带 SKU ID，目标页重新取数，不能自动保存。

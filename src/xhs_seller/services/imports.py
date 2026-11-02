@@ -915,6 +915,29 @@ def preflight(
     return preview
 
 
+def read_receipt(engine, batch_id):
+    """Read the committed batch record, never infer success from a preview."""
+    with Session(engine) as session:
+        batch = session.get(ImportBatch, batch_id)
+        if batch is None:
+            return None
+        try:
+            counts = json.loads(batch.counts_json)
+            if (
+                not isinstance(counts, dict)
+                or set(counts) != {"insert", "update", "noop", "rejected"}
+                or any(type(value) is not int or value < 0 for value in counts.values())
+                or counts["rejected"] != 0
+            ):
+                raise ValueError
+            confirmed_at = datetime.fromisoformat(batch.confirmed_at)
+            if confirmed_at.utcoffset() is None:
+                raise ValueError
+        except (ValueError, TypeError):
+            raise ValueError("回执元数据无效，请备份后人工核对本批记录。") from None
+        return {"confirmed_at": confirmed_at.isoformat(), "counts": counts}
+
+
 class BaselineChangedError(RuntimeError):
     pass
 
